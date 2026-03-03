@@ -13,6 +13,7 @@ from yawrungay.audio import (
     preprocess_for_stt,
     print_device_list,
 )
+from yawrungay.recognition import get_recognizer
 
 logging.basicConfig(
     level=logging.INFO,
@@ -114,6 +115,66 @@ def cmd_stream_test(args):
         sys.exit(1)
 
 
+def cmd_transcribe(args):
+    """Command to transcribe audio from microphone."""
+    duration = args.duration
+    device_index = args.device
+    model_size = args.model_size
+
+    print(f"Transcribing audio for {duration} seconds...")
+    print("Speak into your microphone now!")
+
+    config = AudioConfig(
+        sample_rate=16000,
+        chunk_size=1024,
+        channels=1,
+        device_index=device_index,
+    )
+
+    try:
+        # Initialize recognizer
+        print(f"\nLoading faster-whisper model ({model_size})...")
+        recognizer = get_recognizer(engine="faster-whisper", model_size=model_size)
+        recognizer.load_model()
+
+        if not recognizer.is_ready():
+            print("Error: Failed to load recognition model", file=sys.stderr)
+            sys.exit(1)
+
+        print("Model loaded successfully!")
+        print("\nStarting recording...")
+
+        # Capture audio
+        with AudioCapture(config) as capture:
+            capture.start()
+            audio_data = capture.record(duration=duration)
+            print(f"\nRecorded {len(audio_data)} bytes of audio")
+
+            # Transcribe
+            print("Transcribing audio...")
+            text = recognizer.transcribe(audio_data)
+
+            # Display results
+            print("\n" + "=" * 60)
+            print("TRANSCRIPTION RESULT:")
+            print("=" * 60)
+            print(text if text else "(No speech detected)")
+            print("=" * 60)
+
+        recognizer.cleanup()
+
+    except AudioCaptureError as e:
+        print(f"Audio Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except RuntimeError as e:
+        print(f"Recognition Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Unexpected Error: {e}", file=sys.stderr)
+        logger.exception("Unexpected error during transcription")
+        sys.exit(1)
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -165,6 +226,31 @@ def main():
         help="Device index to use (default: system default)",
     )
 
+    # Transcribe command
+    transcribe_parser = subparsers.add_parser("transcribe", help="Transcribe audio from microphone")
+    transcribe_parser.add_argument(
+        "--duration",
+        "-d",
+        type=float,
+        default=5.0,
+        help="Recording duration in seconds (default: 5.0)",
+    )
+    transcribe_parser.add_argument(
+        "--device",
+        "-D",
+        type=int,
+        default=None,
+        help="Device index to use (default: system default)",
+    )
+    transcribe_parser.add_argument(
+        "--model-size",
+        "-m",
+        type=str,
+        choices=["tiny", "base", "small", "medium", "large"],
+        default="small",
+        help="Model size to use (default: small)",
+    )
+
     args = parser.parse_args()
 
     if args.verbose:
@@ -176,6 +262,8 @@ def main():
         cmd_test_capture(args)
     elif args.command == "test-stream":
         cmd_stream_test(args)
+    elif args.command == "transcribe":
+        cmd_transcribe(args)
     else:
         parser.print_help()
         sys.exit(0)
