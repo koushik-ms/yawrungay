@@ -31,16 +31,23 @@ def cmd_list_devices():
 
 def cmd_test_capture(args):
     """Command to test audio capture."""
+    try:
+        settings = Settings(custom_config_path=args.config)
+    except ConfigError as e:
+        print(f"Configuration Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Use CLI args if provided, otherwise use config
     duration = args.duration
-    device_index = args.device
+    device_index = args.device if args.device is not None else settings.get_audio_device()
 
     print(f"Testing audio capture for {duration} seconds...")
     print("Speak into your microphone now!")
 
     config = AudioConfig(
-        sample_rate=16000,
-        chunk_size=1024,
-        channels=1,
+        sample_rate=settings.get_sample_rate(),
+        chunk_size=settings.get_chunk_size(),
+        channels=settings.get_channels(),
         device_index=device_index,
     )
 
@@ -55,7 +62,7 @@ def cmd_test_capture(args):
             print(f"\nCaptured {len(audio_data)} bytes of audio")
 
             # Preprocess for STT
-            processed = preprocess_for_stt(audio_data, src_sample_rate=16000)
+            processed = preprocess_for_stt(audio_data, src_sample_rate=settings.get_sample_rate())
             print(f"Processed to {len(processed)} bytes")
 
             print("\nAudio capture test completed successfully!")
@@ -67,16 +74,23 @@ def cmd_test_capture(args):
 
 def cmd_stream_test(args):
     """Command to test streaming audio capture."""
+    try:
+        settings = Settings(custom_config_path=args.config)
+    except ConfigError as e:
+        print(f"Configuration Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Use CLI args if provided, otherwise use config
     duration = args.duration
-    device_index = args.device
+    device_index = args.device if args.device is not None else settings.get_audio_device()
 
     print(f"Testing audio streaming for {duration} seconds...")
     print("Speak into your microphone now!")
 
     config = AudioConfig(
-        sample_rate=16000,
-        chunk_size=1024,
-        channels=1,
+        sample_rate=settings.get_sample_rate(),
+        chunk_size=settings.get_chunk_size(),
+        channels=settings.get_channels(),
         device_index=device_index,
     )
 
