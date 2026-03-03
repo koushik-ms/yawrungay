@@ -124,16 +124,20 @@ class TestAudioCapture:
 
         with AudioCapture() as capture:
             capture.start()
+            # Allow audio thread time to initialize and start producing data
+            time.sleep(0.05)
+
             chunks = []
             start_time = time.time()
 
-            for chunk in capture.read_chunks(timeout=0.01):
+            # Use longer timeout and collection window to account for slow audio initialization
+            for chunk in capture.read_chunks(timeout=0.05):
                 chunks.append(chunk)
-                if time.time() - start_time > 0.05:  # Collect for 50ms
+                if time.time() - start_time > 0.5:  # Collect for 500ms
                     break
 
             capture.stop()
-            assert len(chunks) > 0
+            assert len(chunks) > 0, "Expected at least one audio chunk; audio device may not be responding"
 
     def test_record(self):
         """Test recording fixed duration."""
