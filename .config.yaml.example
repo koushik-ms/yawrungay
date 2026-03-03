@@ -1,0 +1,96 @@
+# Yawrungay Configuration File
+# Copy this file to config.yaml or ~/.config/yawrungay/config.yaml and customize as needed
+
+# Audio Input Settings
+# Configure microphone input and audio processing
+audio:
+  # Audio device index (None = system default)
+  # Run "python -m yawrungay devices" to see available devices
+  device: null
+
+  # Sample rate in Hz (16000 is standard for speech recognition)
+  sample_rate: 16000
+
+  # Audio chunk size in samples (1024 is typical)
+  chunk_size: 1024
+
+  # Number of audio channels (1 = mono, 2 = stereo)
+  channels: 1
+
+# Speech Recognition Settings
+# Configure speech-to-text engine and models
+speech_recognition:
+  # STT engine to use
+  # Options: "faster-whisper" (accurate), "vosk" (lightweight)
+  engine: faster-whisper
+
+  # faster-whisper specific configuration
+  faster_whisper:
+    # Model size affects accuracy vs speed
+    # Options: tiny (fastest), base, small (recommended), medium, large (most accurate)
+    # Larger models require more disk space and processing time
+    model_size: small
+
+    # Cache directory for downloaded models
+    # Empty = ~/.cache/yawrungay/models
+    cache_dir: ""
+
+  # Vosk specific configuration (when engine is "vosk")
+  vosk:
+    # Path to Vosk model directory
+    # Empty = ~/.cache/yawrungay/vosk-models
+    model_path: ""
+
+# Text-to-Speech Settings
+# Configure voice feedback (for future implementation)
+tts:
+  # TTS engine to use
+  # Options: "pyttsx3" (offline), "edge-tts" (online)
+  engine: pyttsx3
+
+  # Voice speaking rate in words per minute
+  # Typical range: 100-300, 180 is default
+  voice_rate: 180
+
+  # Voice volume level
+  # Range: 0.0 to 1.0
+  voice_volume: 1.0
+
+# Wake Word Settings
+# Configure voice activation (for future implementation)
+wake_word:
+  # Enable wake word detection
+  enabled: false
+
+  # Wake word keyword to listen for
+  keyword: yawrungay
+
+  # Wake word sensitivity
+  # Range: 0.0 (least sensitive) to 1.0 (most sensitive)
+  sensitivity: 0.5
+
+# Command Execution Settings
+# Configure command behavior and timing
+commands:
+  # Command execution timeout in seconds
+  # Maximum time to wait for a command to complete
+  timeout: 5.0
+
+  # Maximum listening duration in seconds
+  # How long to listen for voice input before timing out
+  max_listening_duration: 30.0
+
+# Logging Settings
+# Configure application logging
+logging:
+  # Log level
+  # Options: DEBUG (most verbose), INFO, WARNING, ERROR, CRITICAL
+  level: INFO
+
+  # Log file path
+  # Empty = ~/.cache/yawrungay/logs/app.log
+  # Use stdout for console-only logging
+  file: ""
+
+  # Enable logging to console
+  console_output: true
