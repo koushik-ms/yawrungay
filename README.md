@@ -97,19 +97,45 @@ log_file: ~/.cache/yawrungay/logs/app.log
 ### Basic Usage
 
 ```bash
-# Run the voice assistant
-python -m yawrungay
+# List available audio devices
+python -m yawrungay devices
 
-# Run with verbose logging
-python -m yawrungay --verbose
+# Test audio capture
+python -m yawrungay test-capture -d 3
 
-# Run in headless mode (no GUI)
-python -m yawrungay --no-gui
+# Transcribe audio using default settings from config
+python -m yawrungay transcribe -d 5
+
+# Transcribe with specific STT engine (overrides config)
+python -m yawrungay transcribe -d 5 -e vosk
+python -m yawrungay transcribe -d 5 -e faster-whisper
+
+# Transcribe with specific engine and model size
+python -m yawrungay transcribe -d 5 -e faster-whisper -m medium
+python -m yawrungay transcribe -d 5 -e vosk -m large
+
+# Show current configuration
+python -m yawrungay config show
+
+# Generate configuration file
+python -m yawrungay config init
 ```
 
-### Command Mode
+### Comparing STT Engines
 
-When activated, Yawrungay can execute commands like:
+You can easily compare the performance of different engines:
+
+```bash
+# Record and transcribe with faster-whisper
+python -m yawrungay transcribe -d 5 -e faster-whisper -m small
+
+# Record and transcribe the same audio with Vosk
+python -m yawrungay transcribe -d 5 -e vosk -m small
+```
+
+### Command Mode (Future)
+
+When activated, Yawrungay will be able to execute commands like:
 - "Open [application name]"
 - "Switch to [window name]"
 - "Type [text]"
@@ -118,7 +144,7 @@ When activated, Yawrungay can execute commands like:
 - "Set volume to [0-100]"
 - And more...
 
-### Dictation Mode
+### Dictation Mode (Future)
 
 Say "dictate" to enter dictation mode. Your speech will be typed directly into the active application.
 

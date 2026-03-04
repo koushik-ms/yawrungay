@@ -195,6 +195,7 @@ def cmd_transcribe(args):
     duration = args.duration if args.duration else settings.get_max_listening_duration()
     device_index = args.device if args.device is not None else settings.get_audio_device()
     model_size = args.model_size if args.model_size else settings.get_model_size()
+    stt_engine = args.engine if args.engine else settings.get_stt_engine()
 
     print(f"Transcribing audio for {duration} seconds...")
     print("Speak into your microphone now!")
@@ -208,7 +209,6 @@ def cmd_transcribe(args):
 
     try:
         # Initialize recognizer
-        stt_engine = settings.get_stt_engine()
         print(f"\nLoading {stt_engine} model ({model_size})...")
         recognizer = get_recognizer(
             engine=stt_engine,
@@ -336,6 +336,14 @@ def main():
         type=str,
         default=None,
         help="Model size to use (overrides config). faster-whisper: tiny/base/small/medium/large, vosk: small/large",
+    )
+    transcribe_parser.add_argument(
+        "--engine",
+        "-e",
+        type=str,
+        choices=["faster-whisper", "vosk"],
+        default=None,
+        help="STT engine to use (overrides config). Options: faster-whisper, vosk",
     )
 
     # Config commands
