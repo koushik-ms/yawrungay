@@ -214,6 +214,7 @@ def cmd_transcribe(args):
             engine=stt_engine,
             model_size=model_size,
             cache_dir=settings.get_model_cache_dir() if stt_engine == "faster-whisper" else None,
+            model_path=settings.get_vosk_model_path() if stt_engine == "vosk" else None,
         )
         recognizer.load_model()
 
@@ -333,9 +334,8 @@ def main():
         "--model-size",
         "-m",
         type=str,
-        choices=["tiny", "base", "small", "medium", "large"],
         default=None,
-        help="Model size to use (overrides config)",
+        help="Model size to use (overrides config). faster-whisper: tiny/base/small/medium/large, vosk: small/large",
     )
 
     # Config commands

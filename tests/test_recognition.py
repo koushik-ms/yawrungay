@@ -8,6 +8,7 @@ import pytest
 from yawrungay.recognition import get_recognizer
 from yawrungay.recognition.base import BaseRecognizer
 from yawrungay.recognition.faster_whisper import FasterWhisperRecognizer
+from yawrungay.recognition.vosk import VoskRecognizer
 
 
 class TestBaseRecognizer:
@@ -213,3 +214,189 @@ class TestRecognizerFactory:
         """Test that custom model size is passed to recognizer."""
         recognizer = get_recognizer(engine="faster-whisper", model_size="base")
         assert recognizer.model_size == "base"
+
+
+class TestVoskRecognizer:
+    """Test cases for VoskRecognizer implementation."""
+
+    @patch("yawrungay.recognition.vosk.Model")
+    def test_initialization(self, mock_vosk_model):
+        """Test that Vosk recognizer initializes without loading model."""
+        recognizer = VoskRecognizer(model_size="small")
+        assert recognizer.model_size == "small"
+        assert recognizer._model is None
+        assert recognizer.sample_rate == 16000
+        # Model should not be loaded on init
+        mock_vosk_model.assert_not_called()
+
+    def test_invalid_model_size(self):
+        """Test that invalid model size raises ValueError."""
+        with pytest.raises(ValueError, match="Invalid model size"):
+            VoskRecognizer(model_size="invalid")
+
+    @patch("yawrungay.recognition.vosk.Model")
+    @patch("yawrungay.recognition.vosk.Path.exists")
+    def test_load_model_existing(self, mock_exists, mock_vosk_model):
+        """Test loading an existing Vosk model."""
+        mock_exists.return_value = True
+        mock_model_instance = MagicMock()
+        mock_vosk_model.return_value = mock_model_instance
+
+        recognizer = VoskRecognizer(model_size="small")
+        recognizer.load_model()
+
+        # Should have called Model with model path
+        mock_vosk_model.assert_called_once()
+        assert recognizer._model is not None
+
+    @patch("yawrungay.recognition.vosk.Model")
+    @patch("yawrungay.recognition.vosk.Path.exists")
+    @patch("yawrungay.recognition.vosk.request.urlretrieve")
+    @patch("yawrungay.recognition.vosk.zipfile.ZipFile")
+    @patch("yawrungay.recognition.vosk.Path.unlink")
+    @patch("yawrungay.recognition.vosk.shutil.move")
+    def test_load_model_downloads_if_missing(
+        self, mock_move, mock_unlink, mock_zipfile, mock_urlretrieve, mock_exists, mock_vosk_model
+    ):
+        """Test that model is downloaded if not present."""
+        # Model dir doesn't exist initially, exists after download, and temp file doesn't exist
+        mock_exists.side_effect = [False, False, True]
+        mock_model_instance = MagicMock()
+        mock_vosk_model.return_value = mock_model_instance
+
+        # Mock zipfile context manager
+        mock_zip_instance = MagicMock()
+        mock_zipfile.return_value.__enter__.return_value = mock_zip_instance
+
+        recognizer = VoskRecognizer(model_size="small")
+        recognizer.load_model()
+
+        # Should have downloaded the model
+        mock_urlretrieve.assert_called_once()
+        # Should have extracted the zip
+        mock_zip_instance.extractall.assert_called_once()
+        # Should have loaded the model
+        mock_vosk_model.assert_called_once()
+        assert recognizer._model is not None
+
+    @patch("yawrungay.recognition.vosk.Model")
+    @patch("yawrungay.recognition.vosk.Path.exists")
+    def test_is_ready_false_before_load(self, mock_exists, mock_vosk_model):
+        """Test that is_ready returns False before model is loaded."""
+        recognizer = VoskRecognizer(model_size="small")
+        assert recognizer.is_ready() is False
+
+    @patch("yawrungay.recognition.vosk.Model")
+    @patch("yawrungay.recognition.vosk.Path.exists")
+    def test_is_ready_true_after_load(self, mock_exists, mock_vosk_model):
+        """Test that is_ready returns True after model is loaded."""
+        mock_exists.return_value = True
+        mock_model_instance = MagicMock()
+        mock_vosk_model.return_value = mock_model_instance
+
+        recognizer = VoskRecognizer(model_size="small")
+        recognizer.load_model()
+
+        assert recognizer.is_ready() is True
+
+    @patch("yawrungay.recognition.vosk.Model")
+    @patch("yawrungay.recognition.vosk.Path.exists")
+    @patch("yawrungay.recognition.vosk.KaldiRecognizer")
+    def test_transcribe(self, mock_kaldi, mock_exists, mock_vosk_model):
+        """Test transcribing audio data."""
+        mock_exists.return_value = True
+        mock_model_instance = MagicMock()
+        mock_vosk_model.return_value = mock_model_instance
+
+        # Mock KaldiRecognizer
+        mock_recognizer_instance = MagicMock()
+        mock_recognizer_instance.FinalResult.return_value = '{"text": "hello world"}'
+        mock_kaldi.return_value = mock_recognizer_instance
+
+        recognizer = VoskRecognizer(model_size="small")
+        recognizer.load_model()
+
+        # Create dummy audio data
+        audio_data = struct.pack("<" + "h" * 1600, *([0] * 1600))  # 0.1 second at 16kHz
+
+        text = recognizer.transcribe(audio_data)
+
+        assert text == "hello world"
+        mock_recognizer_instance.AcceptWaveform.assert_called_once_with(audio_data)
+        mock_recognizer_instance.FinalResult.assert_called_once()
+
+    def test_transcribe_before_load_raises(self):
+        """Test that transcribing before loading model raises error."""
+        recognizer = VoskRecognizer(model_size="small")
+        audio_data = b"dummy"
+
+        with pytest.raises(RuntimeError, match="Model not loaded"):
+            recognizer.transcribe(audio_data)
+
+    @patch("yawrungay.recognition.vosk.Model")
+    @patch("yawrungay.recognition.vosk.Path.exists")
+    def test_load_model_idempotent(self, mock_exists, mock_vosk_model):
+        """Test that calling load_model multiple times is safe."""
+        mock_exists.return_value = True
+        mock_model_instance = MagicMock()
+        mock_vosk_model.return_value = mock_model_instance
+
+        recognizer = VoskRecognizer(model_size="small")
+        recognizer.load_model()
+        recognizer.load_model()  # Second call
+
+        # Model should only be loaded once
+        assert mock_vosk_model.call_count == 1
+
+    @patch("yawrungay.recognition.vosk.Model")
+    @patch("yawrungay.recognition.vosk.Path.exists")
+    def test_cleanup(self, mock_exists, mock_vosk_model):
+        """Test that cleanup releases resources."""
+        mock_exists.return_value = True
+        mock_model_instance = MagicMock()
+        mock_vosk_model.return_value = mock_model_instance
+
+        recognizer = VoskRecognizer(model_size="small")
+        recognizer.load_model()
+        assert recognizer._model is not None
+
+        recognizer.cleanup()
+        assert recognizer._model is None
+
+    @patch("yawrungay.recognition.vosk.Model")
+    @patch("yawrungay.recognition.vosk.Path.exists")
+    @patch("yawrungay.recognition.vosk.KaldiRecognizer")
+    def test_transcribe_empty_result(self, mock_kaldi, mock_exists, mock_vosk_model):
+        """Test transcribing with empty result."""
+        mock_exists.return_value = True
+        mock_model_instance = MagicMock()
+        mock_vosk_model.return_value = mock_model_instance
+
+        # Mock KaldiRecognizer with empty result
+        mock_recognizer_instance = MagicMock()
+        mock_recognizer_instance.FinalResult.return_value = '{"text": ""}'
+        mock_kaldi.return_value = mock_recognizer_instance
+
+        recognizer = VoskRecognizer(model_size="small")
+        recognizer.load_model()
+
+        audio_data = struct.pack("<" + "h" * 1600, *([0] * 1600))
+        text = recognizer.transcribe(audio_data)
+
+        assert text == ""
+
+    @patch("yawrungay.recognition.vosk.Model")
+    def test_get_recognizer_vosk(self, mock_vosk_model):
+        """Test that vosk engine is returned from get_recognizer."""
+        recognizer = get_recognizer(engine="vosk", model_size="small")
+        assert isinstance(recognizer, VoskRecognizer)
+        assert recognizer.model_size == "small"
+
+    @patch("yawrungay.recognition.vosk.Model")
+    def test_get_recognizer_vosk_with_model_path(self, mock_vosk_model):
+        """Test that model_path is passed to VoskRecognizer."""
+        custom_path = "/custom/path"
+        recognizer = get_recognizer(engine="vosk", model_size="large", model_path=custom_path)
+        assert isinstance(recognizer, VoskRecognizer)
+        assert recognizer.model_size == "large"
+        assert recognizer.model_path == custom_path

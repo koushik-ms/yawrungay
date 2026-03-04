@@ -9,5 +9,8 @@ wheels/
 # Local secrets
 .env*
 
+# Coverage report
+.coverage
+
 # Virtual environments
 .venv

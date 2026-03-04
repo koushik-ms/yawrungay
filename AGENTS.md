@@ -4,7 +4,7 @@ This document provides guidance for AI agents working on the Yawrungay voice ass
 
 ## Project Context
 
-Yawrungay is a privacy-focused, offline voice assistant inspired by [numen](https://git.sr.ht/~geb/numen). The project is in its early stages - documentation is being set up and no production code exists yet.
+Yawrungay is a privacy-focused, offline voice assistant inspired by [numen](https://git.sr.ht/~geb/numen). The project has implemented core audio capture, configuration management, and faster-whisper speech recognition. Active development is ongoing for additional STT engines and voice command features.
 
 ## Technology Stack
 
@@ -30,6 +30,16 @@ Yawrungay is a privacy-focused, offline voice assistant inspired by [numen](http
 2. **Extensibility**: Design interfaces that allow easy addition of new STT engines and commands
 3. **Error Handling**: Graceful degradation with informative error messages
 4. **Testing**: Write tests for new features before implementation
+
+### Asking Clarifying Questions
+
+AI agents working on this project should use the question tool when:
+- Design decisions have multiple valid approaches
+- Requirements are ambiguous or incomplete
+- Trade-offs exist between different implementation strategies
+- User preferences are needed for behavior or configuration
+
+Use the question tool proactively - confirming intent prevents rework and ensures the implementation matches user expectations.
 
 ### Implementation Order
 
@@ -190,14 +200,17 @@ The wake word activates the command listening mode. Default: "yawrungay"
 ## Current State
 
 - ✅ Project structure initialized
-- ✅ Documentation setup in progress
-- ⬜ Audio capture module
-- ⬜ Speech recognition integration
+- ✅ Documentation in sync with implementation
+- ✅ Audio capture module (capture, devices, processing)
+- ✅ Configuration management system (YAML-based)
+- ✅ Speech recognition integration (faster-whisper)
+- ✅ CLI with transcribe, test, and config commands
+- ✅ Comprehensive test suite (101 tests)
+- ✅ Vosk STT engine with auto-download
 - ⬜ Command parsing system
 - ⬜ Action system
 - ⬜ TTS integration
 - ⬜ Wake word detection
-- ⬜ Testing and validation
 
 ## Getting Started for New AI Agents
 
@@ -220,6 +233,13 @@ The wake word activates the command listening mode. Default: "yawrungay"
 - Download models on first use
 - Cache models in user config directory
 - Handle model loading failures with clear messages
+
+### Vosk Model Issues
+- Models are auto-downloaded on first use
+- Small model: ~40MB, good for testing
+- Large model: ~1.8GB, better accuracy
+- Manual download available from https://alphacephei.com/vosk/models
+- Ensure sufficient disk space before download
 
 ### Performance Issues
 - Use chunked audio processing

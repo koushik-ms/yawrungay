@@ -180,8 +180,13 @@ uv run mypy src/
 
 ## Roadmap
 
-- [ ] Implement faster-whisper integration
-- [ ] Add Vosk support
+- [x] Implement audio capture module
+- [x] Add audio preprocessing utilities
+- [x] Implement faster-whisper integration
+- [x] Create YAML configuration system
+- [x] Build CLI with test and transcribe commands
+- [x] Add comprehensive test suite
+- [x] Add Vosk STT engine support
 - [ ] Create wake word detection
 - [ ] Build command parsing system
 - [ ] Add system automation actions
@@ -189,7 +194,6 @@ uv run mypy src/
 - [ ] Create GUI interface
 - [ ] Add plugin system for custom commands
 - [ ] Implement configuration wizard
-- [ ] Add unit and integration tests
 
 ## Inspiration
 

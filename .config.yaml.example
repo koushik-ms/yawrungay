@@ -39,6 +39,11 @@ speech_recognition:
   vosk:
     # Path to Vosk model directory
     # Empty = ~/.cache/yawrungay/vosk-models
+    # Models are automatically downloaded on first use if not present
+    # Available model sizes:
+    #   - small (~40MB): Fast, good for testing and simple commands
+    #   - large (~1.8GB): Better accuracy for complex transcription
+    # Manual download: https://alphacephei.com/vosk/models
     model_path: ""
 
 # Text-to-Speech Settings
