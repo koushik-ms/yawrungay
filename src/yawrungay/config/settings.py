@@ -60,6 +60,12 @@ class Settings:
     def _load_config(self, custom_config_path: str | None) -> AppConfig:
         """Load configuration from files in priority order.
 
+        Priority (highest to lowest):
+        1. Custom config file (--config option)
+        2. Project config (./config.yaml)
+        3. User home config (~/.config/yawrungay/config.yaml)
+        4. Hardcoded defaults
+
         Args:
             custom_config_path: Path to custom config file.
 
@@ -71,28 +77,27 @@ class Settings:
         """
         config_dict: dict[str, Any] = {}
 
-        # Priority 1: Custom config file
         if custom_config_path:
+            # Priority 1: Custom config takes exclusive priority
             config_path = Path(custom_config_path).expanduser()
             if config_path.exists():
                 logger.info(f"Loading custom config from: {config_path}")
                 config_dict.update(self._load_yaml(config_path))
             else:
                 raise ConfigError(f"Custom config file not found: {config_path}")
+        else:
+            # Priority 3: User home config (loaded first, lower priority)
+            home_config = Path.home() / ".config" / "yawrungay" / "config.yaml"
+            if home_config.exists():
+                logger.info(f"Loading user config from: {home_config}")
+                config_dict.update(self._load_yaml(home_config))
 
-        # Priority 2: Project root config
-        project_config = Path("config.yaml")
-        if project_config.exists():
-            logger.info(f"Loading project config from: {project_config.absolute()}")
-            config_dict.update(self._load_yaml(project_config))
+            # Priority 2: Project config (overrides user config)
+            project_config = Path("config.yaml")
+            if project_config.exists():
+                logger.info(f"Loading project config from: {project_config.absolute()}")
+                config_dict.update(self._load_yaml(project_config))
 
-        # Priority 3: User home config
-        home_config = Path.home() / ".config" / "yawrungay" / "config.yaml"
-        if home_config.exists():
-            logger.info(f"Loading user config from: {home_config}")
-            config_dict.update(self._load_yaml(home_config))
-
-        # Build config from loaded dict + defaults
         return self._build_config(config_dict)
 
     @staticmethod
