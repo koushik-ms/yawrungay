@@ -17,6 +17,7 @@ def get_recognizer(
     model_size: str = "small",
     cache_dir: str | None = None,
     model_path: str | None = None,
+    compute_type: str = "int8",
 ) -> BaseRecognizer:
     """Factory function to get a speech recognizer instance.
 
@@ -30,6 +31,8 @@ def get_recognizer(
             Used by faster-whisper.
         model_path: Path to model directory. Default: ~/.cache/yawrungay/vosk-models
             Used by vosk.
+        compute_type: Compute type for faster-whisper. Default: 'int8'.
+            Options: 'int8', 'int8_float16', 'float16', 'float32', 'default'
 
     Returns:
         An instance of a BaseRecognizer subclass.
@@ -41,6 +44,7 @@ def get_recognizer(
         return FasterWhisperRecognizer(
             model_size=model_size,
             cache_dir=cache_dir,
+            compute_type=compute_type,
         )
     elif engine == "vosk":
         return VoskRecognizer(

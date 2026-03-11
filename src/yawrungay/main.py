@@ -215,6 +215,7 @@ def cmd_transcribe(args):
             model_size=model_size,
             cache_dir=settings.get_model_cache_dir() if stt_engine == "faster-whisper" else None,
             model_path=settings.get_vosk_model_path() if stt_engine == "vosk" else None,
+            compute_type=settings.get_compute_type() if stt_engine == "faster-whisper" else "int8",
         )
         recognizer.load_model()
 

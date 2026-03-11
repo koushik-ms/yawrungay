@@ -23,12 +23,14 @@ class FasterWhisperRecognizer(BaseRecognizer):
     Attributes:
         model_size: Size of the model (tiny, base, small, medium, large).
         cache_dir: Directory to cache downloaded models.
+        compute_type: Compute type for inference (int8, float16, float32, default).
     """
 
     def __init__(
         self,
         model_size: str = "small",
         cache_dir: str | None = None,
+        compute_type: str = "int8",
     ) -> None:
         """Initialize the faster-whisper recognizer.
 
@@ -37,6 +39,9 @@ class FasterWhisperRecognizer(BaseRecognizer):
                 Options: 'tiny', 'base', 'small', 'medium', 'large'
             cache_dir: Directory to cache downloaded models.
                 Default: ~/.cache/yawrungay/models
+            compute_type: Compute type for inference. Default is 'int8'.
+                Options: 'int8', 'int8_float16', 'float16', 'float32', 'default'
+                Use 'int8' for best performance on CPU.
 
         Raises:
             ValueError: If model_size is not valid.
@@ -45,6 +50,7 @@ class FasterWhisperRecognizer(BaseRecognizer):
             raise ValueError(f"Invalid model size '{model_size}'. Must be one of: {', '.join(VALID_MODEL_SIZES)}")
 
         self.model_size = model_size
+        self.compute_type = compute_type
         self._model: WhisperModel | None = None
 
         # Set cache directory
@@ -52,7 +58,9 @@ class FasterWhisperRecognizer(BaseRecognizer):
             cache_dir = str(Path.home() / ".cache" / "yawrungay" / "models")
         self.cache_dir = cache_dir
 
-        logger.debug(f"Initialized FasterWhisperRecognizer with model_size={model_size}, cache_dir={cache_dir}")
+        logger.debug(
+            f"Initialized FasterWhisperRecognizer with model_size={model_size}, compute_type={compute_type}, cache_dir={cache_dir}"
+        )
 
     def load_model(self) -> None:
         """Load the faster-whisper model.
@@ -78,7 +86,7 @@ class FasterWhisperRecognizer(BaseRecognizer):
             self._model = WhisperModel(
                 self.model_size,
                 device="cpu",
-                compute_type="default",
+                compute_type=self.compute_type,
                 download_root=self.cache_dir,
             )
 

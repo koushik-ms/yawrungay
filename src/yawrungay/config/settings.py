@@ -7,6 +7,7 @@ from typing import Any
 import yaml
 
 from yawrungay.config.defaults import (
+    ALLOWED_COMPUTE_TYPES,
     ALLOWED_LOG_LEVELS,
     ALLOWED_MODEL_SIZES,
     ALLOWED_STT_ENGINES,
@@ -157,9 +158,16 @@ class Settings:
             if fw_model_size not in ALLOWED_MODEL_SIZES:
                 raise ConfigError(f"Invalid model size: {fw_model_size}. Allowed: {', '.join(ALLOWED_MODEL_SIZES)}")
 
+            fw_compute_type = fw_dict.get("compute_type", DEFAULT_CONFIG.speech_recognition.faster_whisper.compute_type)
+            if fw_compute_type not in ALLOWED_COMPUTE_TYPES:
+                raise ConfigError(
+                    f"Invalid compute type: {fw_compute_type}. Allowed: {', '.join(ALLOWED_COMPUTE_TYPES)}"
+                )
+
             faster_whisper = FasterWhisperConfig(
                 model_size=fw_model_size,
                 cache_dir=fw_dict.get("cache_dir", DEFAULT_CONFIG.speech_recognition.faster_whisper.cache_dir),
+                compute_type=fw_compute_type,
             )
 
             vosk_dict = sr_dict.get("vosk", {})
@@ -266,6 +274,10 @@ class Settings:
         if not cache_dir:
             cache_dir = str(Path.home() / ".cache" / "yawrungay" / "models")
         return cache_dir
+
+    def get_compute_type(self) -> str:
+        """Get compute type for faster-whisper."""
+        return self._config.speech_recognition.faster_whisper.compute_type
 
     def get_vosk_model_path(self) -> str:
         """Get Vosk model path."""

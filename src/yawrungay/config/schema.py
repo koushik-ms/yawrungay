@@ -30,6 +30,9 @@ class FasterWhisperConfig:
     cache_dir: str = ""
     """Cache directory for models. Empty = ~/.cache/yawrungay/models."""
 
+    compute_type: str = "int8"
+    """Compute type for model inference: int8, float16, float32, default."""
+
 
 @dataclass
 class VoskConfig:
