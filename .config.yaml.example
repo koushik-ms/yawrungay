@@ -1,5 +1,6 @@
 # Yawrungay Configuration File
-# Copy this file to config.yaml or ~/.config/yawrungay/config.yaml and customize as needed
+# This file is for reference only. Run "python -m yawrungay config init" to create a config file.
+# Config is stored at: ~/.config/yawrungay/config.yaml
 
 # Audio Input Settings
 # Configure microphone input and audio processing
@@ -34,6 +35,10 @@ speech_recognition:
     # Cache directory for downloaded models
     # Empty = ~/.cache/yawrungay/models
     cache_dir: ""
+
+    # Compute type for model inference
+    # Options: int8, int8_float16, float16, float32, default
+    compute_type: int8
 
   # Vosk specific configuration (when engine is "vosk")
   vosk:

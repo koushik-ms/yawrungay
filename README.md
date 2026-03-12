@@ -61,7 +61,7 @@ source .venv/bin/activate  # Linux/macOS
 
 ## Configuration
 
-Create a `config.yaml` file in the project root:
+Create a `.yawrungay/config.yaml` file in your project root (or any parent directory, search stops at git root):
 
 ```yaml
 # Speech Recognition Settings

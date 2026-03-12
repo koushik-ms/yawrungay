@@ -1,6 +1,7 @@
 """Settings manager for Yawrungay configuration."""
 
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -40,7 +41,7 @@ class Settings:
 
     Loads configuration from multiple sources in priority order:
     1. Custom config file (passed via -c flag)
-    2. ./config.yaml (project root)
+    2. .yawrungay/config.yaml (project root or parent dirs, up to git root)
     3. ~/.config/yawrungay/config.yaml (user home)
     4. Hardcoded defaults
     """
@@ -63,7 +64,7 @@ class Settings:
 
         Priority (highest to lowest):
         1. Custom config file (--config option)
-        2. Project config (./config.yaml)
+        2. Project config (.yawrungay/config.yaml in cwd or parent dirs)
         3. User home config (~/.config/yawrungay/config.yaml)
         4. Hardcoded defaults
 
@@ -94,12 +95,58 @@ class Settings:
                 config_dict.update(self._load_yaml(home_config))
 
             # Priority 2: Project config (overrides user config)
-            project_config = Path("config.yaml")
-            if project_config.exists():
+            # Search for .yawrungay/config.yaml starting from cwd, walking up to git root
+            project_config = self._find_project_config()
+            if project_config:
                 logger.info(f"Loading project config from: {project_config.absolute()}")
                 config_dict.update(self._load_yaml(project_config))
 
         return self._build_config(config_dict)
+
+    @staticmethod
+    def _find_project_config() -> Path | None:
+        """Find project config by searching for .yawrungay directory.
+
+        Searches from current working directory upward through parent
+        directories, stopping at git repository root.
+
+        Returns:
+            Path to config.yaml if found, None otherwise.
+        """
+        current = Path.cwd()
+        git_root = Settings._find_git_root(current)
+
+        while current != git_root:
+            yawrungay_dir = current / ".yawrungay"
+            config_file = yawrungay_dir / "config.yaml"
+            if config_file.exists():
+                return config_file
+            current = current.parent
+
+        # Also check git root itself
+        yawrungay_dir = git_root / ".yawrungay"
+        config_file = yawrungay_dir / "config.yaml"
+        if config_file.exists():
+            return config_file
+
+        return None
+
+    @staticmethod
+    def _find_git_root(start: Path) -> Path:
+        """Find git repository root by walking up from start directory.
+
+        Args:
+            start: Starting directory path.
+
+        Returns:
+            Path to git root or filesystem root if not in a git repo.
+        """
+        current = start
+        while current != current.parent:
+            if (current / ".git").is_dir():
+                return current
+            current = current.parent
+        return current
 
     @staticmethod
     def _load_yaml(path: Path) -> dict[str, Any]:

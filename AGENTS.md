@@ -126,8 +126,52 @@ src/yawrungay/
 ### Configuration Files
 
 - `pyproject.toml`: Project metadata and dependencies
-- `config.yaml`: User configuration (create from template)
+- `.yawrungay/config.yaml`: User configuration (create from template)
 - `.env.example`: Environment variables template
+- `.config.yaml.example`: Reference template (for reference only, use `config init` to create config)
+
+### Adding New Configuration Settings
+
+When adding new configuration options, follow these steps to ensure proper integration:
+
+1. **Add to schema** (`src/yawrungay/config/schema.py`):
+   - Add a new dataclass or extend existing one with the new field
+   - Include type hints and default values
+
+2. **Update config init** (`src/yawrungay/config/__init__.py`):
+   - Add the new field to `generate_config_template()` function
+   - This ensures `config init` generates complete configs with defaults
+
+3. **Add getter method** (`src/yawrungay/config/settings.py`):
+   - Add a getter method to access the new configuration value
+   - Follow the pattern of existing getters
+
+4. **Update documentation**:
+   - Add the new option to `.config.yaml.example` with comments
+   - Update README.md if needed
+
+Example:
+```python
+# 1. schema.py - Add field
+@dataclass
+class NewFeatureConfig:
+    enabled: bool = False
+    option: str = "default"
+
+# 2. __init__.py - Add to template
+def generate_config_template() -> dict:
+    return {
+        # ... existing fields ...
+        "new_feature": {
+            "enabled": False,
+            "option": "default",
+        },
+    }
+
+# 3. settings.py - Add getter
+def is_new_feature_enabled(self) -> bool:
+    return self._config.new_feature.enabled
+```
 
 ### Dependencies
 

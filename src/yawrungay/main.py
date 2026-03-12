@@ -7,6 +7,7 @@ import signal
 import sys
 import time
 from collections.abc import Generator
+from pathlib import Path
 
 from yawrungay.audio import (
     AudioCapture,
@@ -156,33 +157,56 @@ def cmd_config_show(args):
 
 def cmd_config_init(args):
     """Command to generate a configuration template."""
-    from pathlib import Path
+    import yaml
+    from yawrungay.config import deep_merge, generate_config_template
 
-    config_dir = Path.home() / ".config" / "yawrungay"
-    config_file = config_dir / "config.yaml"
+    if args.config:
+        config_file = Path(args.config).expanduser()
+        config_dir = config_file.parent
+    else:
+        config_dir = Path.home() / ".config" / "yawrungay"
+        config_file = config_dir / "config.yaml"
 
     try:
         config_dir.mkdir(parents=True, exist_ok=True)
 
-        if config_file.exists() and not args.force:
-            print(f"Configuration file already exists: {config_file}")
-            print("Use --force to overwrite")
-            sys.exit(1)
+        # Generate template from schema defaults
+        template = generate_config_template()
 
-        # Read example config
-        example_config_path = Path(__file__).parent.parent.parent / ".config.yaml.example"
-        if not example_config_path.exists():
-            print(f"Error: Example config file not found: {example_config_path}", file=sys.stderr)
-            sys.exit(1)
+        if config_file.exists():
+            if args.force:
+                # Overwrite with template
+                config_dict = template
+                action = "overwritten"
+            else:
+                # Merge template with existing config (existing values take precedence)
+                try:
+                    with open(config_file) as f:
+                        existing = yaml.safe_load(f) or {}
+                    config_dict = deep_merge(template, existing)
+                    action = "updated"
+                except yaml.YAMLError as e:
+                    print(f"Error parsing existing config: {e}", file=sys.stderr)
+                    print("Use --force to overwrite with fresh template", file=sys.stderr)
+                    sys.exit(1)
+        else:
+            # Create new config from template
+            config_dict = template
+            action = "created"
 
-        with open(example_config_path) as src:
-            content = src.read()
+        # Write config file
+        with open(config_file, "w") as f:
+            yaml.dump(config_dict, f, default_flow_style=False, sort_keys=False)
 
-        with open(config_file, "w") as dst:
-            dst.write(content)
-
-        print(f"Configuration template created: {config_file}")
-        print("Edit the file to customize your settings")
+        if action == "created":
+            print(f"Configuration template created: {config_file}")
+            print("Edit the file to customize your settings")
+        elif action == "updated":
+            print(f"Configuration updated: added missing fields with default values")
+            print(f"File: {config_file}")
+        elif action == "overwritten":
+            print(f"Configuration template overwritten: {config_file}")
+            print("Edit the file to customize your settings")
 
     except OSError as e:
         print(f"Error creating configuration: {e}", file=sys.stderr)
@@ -827,7 +851,13 @@ def main():
 
     config_init_parser = config_subparsers.add_parser(
         "init",
-        help="Generate configuration template in ~/.config/yawrungay/",
+        help="Generate or update configuration file",
+    )
+    config_init_parser.add_argument(
+        "--config",
+        "-c",
+        type=str,
+        help="Path to config file (default: ~/.config/yawrungay/config.yaml)",
     )
     config_init_parser.add_argument(
         "--force",
