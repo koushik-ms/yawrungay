@@ -1,0 +1,71 @@
+# Yawrungay Default Phrases
+# Copy this file to ~/.config/yawrungay/phrases/default.phrases
+#
+# Format: [PHRASE]: [ACTION]
+# Lines starting with # are comments.
+# Empty lines are ignored.
+#
+# Built-in commands with fallback:
+#   - type <text>: Types the text (works without phrase definition)
+#   - open <app>: Opens an app from PATH (works without phrase definition)
+#   - run <app>: Same as open (alias)
+#
+# Commands requiring phrase definition:
+#   - press <keys>: Press key combinations
+#   - mouse <action>: Mouse actions
+
+# ========================================
+# TYPING COMMANDS (Auto-correct examples)
+# ========================================
+# These override the fallback "type" behavior for specific phrases
+# type my email: type user@example.com
+# type my name: type John Smith
+# type copyright: type ©
+# type euro: type €
+# type degree: type °
+
+# ========================================
+# KEYBOARD SHORTCUTS
+# ========================================
+copy: press ctrl+c
+paste: press ctrl+v
+undo: press ctrl+z
+redo: press ctrl+shift+z
+select all: press ctrl+a
+save: press ctrl+s
+find: press ctrl+f
+new: press ctrl+n
+close: press ctrl+w
+quit: press ctrl+q
+
+# Browser shortcuts
+new tab: press ctrl+t
+close tab: press ctrl+w
+next tab: press ctrl+tab
+previous tab: press ctrl+shift+tab
+refresh: press ctrl+r
+back: press alt+left
+forward: press alt+right
+
+# Window management
+switch window: press alt+tab
+minimize: press super+down
+maximize: press super+up
+
+# ========================================
+# APPLICATION ALIASES
+# ========================================
+# These provide shorter names for applications
+open browser: open firefox
+open editor: open code
+open terminal: open gnome-terminal
+open files: open nautilus
+
+# ========================================
+# MOUSE ACTIONS
+# ========================================
+click: mouse click left
+right click: mouse click right
+double click: mouse double left
+scroll up: mouse scroll up
+scroll down: mouse scroll down

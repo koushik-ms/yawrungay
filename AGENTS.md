@@ -205,10 +205,11 @@ The wake word activates the command listening mode. Default: "yawrungay"
 - ✅ Configuration management system (YAML-based)
 - ✅ Speech recognition integration (faster-whisper)
 - ✅ CLI with transcribe, test, and config commands
-- ✅ Comprehensive test suite (101 tests)
+- ✅ Comprehensive test suite (183 tests)
 - ✅ Vosk STT engine with auto-download
-- ⬜ Command parsing system
-- ⬜ Action system
+- ✅ Continuous listening mode (`listen` command)
+- ✅ Command parsing system with phrase files
+- ✅ Action system (keyboard, mouse, shell)
 - ⬜ TTS integration
 - ⬜ Wake word detection
 
@@ -249,5 +250,6 @@ The wake word activates the command listening mode. Default: "yawrungay"
 ## Contact and Support
 
 - Refer to [numen documentation](https://git.sr.ht/~geb/numen/tree/master/doc/numen.1.scd) for inspiration
+- Or run `man numen` locally to get the manpage if web fetch fails
 - Check existing issues in the repository
 - Review commit history for implementation patterns

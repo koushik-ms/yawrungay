@@ -213,9 +213,10 @@ uv run mypy src/
 - [x] Build CLI with test and transcribe commands
 - [x] Add comprehensive test suite
 - [x] Add Vosk STT engine support
+- [x] Implement continuous listening mode
+- [x] Build command parsing system with phrase files
+- [x] Add system automation actions (keyboard, mouse, shell)
 - [ ] Create wake word detection
-- [ ] Build command parsing system
-- [ ] Add system automation actions
 - [ ] Implement text-to-speech feedback
 - [ ] Create GUI interface
 - [ ] Add plugin system for custom commands
