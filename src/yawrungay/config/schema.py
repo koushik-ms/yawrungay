@@ -77,7 +77,7 @@ class WakeWordConfig:
     enabled: bool = False
     """Enable wake word detection."""
 
-    keyword: str = "yawrungay"
+    keyword: str = "Alexa"
     """Wake word keyword."""
 
     sensitivity: float = 0.5

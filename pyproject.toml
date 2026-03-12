@@ -12,6 +12,8 @@ dependencies = [
     "pyyaml>=6.0",
     "vosk>=0.3.45",
     "pynput>=1.8.1",
+    "python-uinput>=1.0.1",
+    "evdev>=1.9.3",
 ]
 
 [project.optional-dependencies]

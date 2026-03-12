@@ -77,35 +77,40 @@ class TestKeyboardAction:
         error = action.validate_arguments({"text": "hello"})
         assert error is None
 
-    def test_parse_single_key(self):
-        """Test parsing single key."""
+    def test_parse_single_key_xdotool(self):
+        """Test parsing single key for xdotool."""
         action = KeyboardAction()
-        keys = action._parse_key_combination("a")
-        assert len(keys) == 1
+        combo = action._parse_keys_for_xdotool("a")
+        assert combo == "a"
 
-    def test_parse_modifier_combo(self):
-        """Test parsing modifier + key combo."""
+    def test_parse_modifier_combo_xdotool(self):
+        """Test parsing modifier + key combo for xdotool."""
         action = KeyboardAction()
-        keys = action._parse_key_combination("ctrl+c")
-        assert len(keys) == 2
+        combo = action._parse_keys_for_xdotool("ctrl+c")
+        assert combo == "ctrl+c"
 
-    def test_parse_multiple_modifiers(self):
-        """Test parsing multiple modifiers."""
+    def test_parse_multiple_modifiers_xdotool(self):
+        """Test parsing multiple modifiers for xdotool."""
         action = KeyboardAction()
-        keys = action._parse_key_combination("ctrl+shift+t")
-        assert len(keys) == 3
+        combo = action._parse_keys_for_xdotool("ctrl+shift+t")
+        assert combo == "ctrl+shift+t"
 
-    def test_parse_special_key(self):
-        """Test parsing special key."""
+    def test_parse_special_key_xdotool(self):
+        """Test parsing special key for xdotool."""
         action = KeyboardAction()
-        keys = action._parse_key_combination("enter")
-        assert len(keys) == 1
+        combo = action._parse_keys_for_xdotool("enter")
+        assert combo == "Return"
 
-    def test_parse_unknown_key(self):
-        """Test parsing unknown key returns empty."""
+    def test_parse_unknown_key_xdotool(self):
+        """Test parsing unknown key returns empty for xdotool."""
         action = KeyboardAction()
-        keys = action._parse_key_combination("unknownkey")
-        assert keys == []
+        combo = action._parse_keys_for_xdotool("unknownkey")
+        assert combo == ""
+
+    def test_backend_detection(self):
+        """Test that backend is detected."""
+        action = KeyboardAction()
+        assert action.backend in ["ydotool", "xdotool", "pynput"]
 
 
 class TestMouseAction:
@@ -213,9 +218,9 @@ class TestActionExecutor:
             from_fallback=True,
         )
 
-        with patch("yawrungay.actions.keyboard.keyboard.Controller") as mock_controller:
-            mock_instance = MagicMock()
-            mock_controller.return_value = mock_instance
+        # Mock subprocess.run for xdotool/ydotool backends
+        with patch("yawrungay.actions.keyboard.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stderr="")
             result = executor.execute(cmd)
             assert result.success is True
 

@@ -17,7 +17,9 @@ from yawrungay.audio import (
     preprocess_for_stt,
     print_device_list,
 )
+from yawrungay.actions import ActionExecutor
 from yawrungay.config import ConfigError, Settings
+from yawrungay.parsing import CommandParser, PhraseFileLoader
 from yawrungay.recognition import Utterance, get_recognizer
 
 logger = logging.getLogger(__name__)
@@ -372,6 +374,257 @@ def cmd_listen(args):
         sys.exit(1)
 
 
+def _find_wake_word(text: str, wake_word: str) -> int:
+    """Find wake word in text (case-insensitive).
+
+    Args:
+        text: The text to search in.
+        wake_word: The wake word to find.
+
+    Returns:
+        Index where wake word starts, or -1 if not found.
+    """
+    text_lower = text.lower()
+    wake_lower = wake_word.lower()
+    return text_lower.find(wake_lower)
+
+
+def _extract_command_after_wake_word(text: str, wake_word: str) -> str:
+    """Extract the command portion after the wake word.
+
+    Strips leading punctuation and whitespace after the wake word.
+
+    Args:
+        text: The full utterance text.
+        wake_word: The wake word to find and skip.
+
+    Returns:
+        The text after the wake word, stripped of whitespace and punctuation.
+    """
+    idx = _find_wake_word(text, wake_word)
+    if idx < 0:
+        return ""
+    # Skip past the wake word
+    command = text[idx + len(wake_word) :]
+    # Strip whitespace and common punctuation that may follow wake word
+    command = command.lstrip(" \t\n\r,!.?;:").rstrip()
+    return command
+
+
+class MonitorState:
+    """State machine for monitor command."""
+
+    WAITING = "waiting"
+    LISTENING_FOR_COMMAND = "listening"
+
+
+def cmd_monitor(args):
+    """Command for wake word monitoring mode.
+
+    Listens continuously for the wake word, then parses and executes
+    voice commands. Supports two modes:
+    - Same utterance: "yawrungay type hello" executes immediately
+    - Two-phase: "yawrungay" alone waits for next utterance as command
+    """
+    try:
+        settings = Settings(custom_config_path=args.config)
+    except ConfigError as e:
+        print(f"Configuration Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Use CLI args if provided, otherwise use config
+    device_index = args.device if args.device is not None else settings.get_audio_device()
+    model_size = args.model_size if args.model_size else settings.get_model_size()
+    stt_engine = args.engine if args.engine else settings.get_stt_engine()
+    silence_threshold = args.silence_threshold if args.silence_threshold else -35.0
+    silence_duration = args.silence_duration if args.silence_duration else 0.8
+    output_json = args.json
+
+    # Wake word from CLI or config
+    wake_word = args.wake_word if args.wake_word else settings.get_wake_word()
+
+    sample_rate = settings.get_sample_rate()
+    chunk_size = settings.get_chunk_size()
+
+    config = AudioConfig(
+        sample_rate=sample_rate,
+        chunk_size=chunk_size,
+        channels=settings.get_channels(),
+        device_index=device_index,
+    )
+
+    stop_flag = False
+
+    def signal_handler(signum, frame):
+        nonlocal stop_flag
+        stop_flag = True
+        logger.info("Received signal to stop monitoring")
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
+    try:
+        # Initialize speech recognizer
+        logger.info(f"Loading {stt_engine} model ({model_size})...")
+        recognizer = get_recognizer(
+            engine=stt_engine,
+            model_size=model_size,
+            cache_dir=settings.get_model_cache_dir() if stt_engine == "faster-whisper" else None,
+            model_path=settings.get_vosk_model_path() if stt_engine == "vosk" else None,
+            compute_type=settings.get_compute_type() if stt_engine == "faster-whisper" else "int8",
+        )
+        recognizer.load_model()
+
+        if not recognizer.is_ready():
+            print("Error: Failed to load recognition model", file=sys.stderr)
+            sys.exit(1)
+
+        logger.info("Model loaded successfully")
+
+        # Initialize command parser with phrases
+        phrase_loader = PhraseFileLoader()
+        command_parser = CommandParser(phrase_loader=phrase_loader)
+        logger.info(f"Loaded {len(command_parser._phrases)} phrases")
+
+        # Initialize action executor
+        executor = ActionExecutor()
+        logger.info(f"Registered actions: {executor.get_registered_actions()}")
+
+        def audio_generator() -> Generator[bytes, None, None]:
+            """Generator yielding audio chunks until stop signal."""
+            with AudioCapture(config) as capture:
+                capture.start()
+                logger.info(f"Monitoring for wake word '{wake_word}'... (press Ctrl+C to stop)")
+
+                while not stop_flag:
+                    chunk = capture.read_chunk(timeout=0.1)
+                    if chunk is not None:
+                        yield chunk
+
+        def output_event(event_type: str, data: dict) -> None:
+            """Output an event to stdout."""
+            if output_json:
+                output = json.dumps(
+                    {
+                        "event": event_type,
+                        "timestamp": time.time(),
+                        **data,
+                    },
+                    ensure_ascii=False,
+                )
+                print(output, flush=True)
+            else:
+                if event_type == "wake_word":
+                    print(f"[Wake word detected: '{data.get('text', '')}']", flush=True)
+                elif event_type == "command":
+                    print(f"[Command: {data.get('action_type', '')} {data.get('arguments', {})}]", flush=True)
+                elif event_type == "result":
+                    success = data.get("success", False)
+                    if success:
+                        print(f"[Success: {data.get('message', '')}]", flush=True)
+                    else:
+                        print(f"[Failed: {data.get('error', '')}]", flush=True)
+                elif event_type == "listening":
+                    print("[Listening for command...]", flush=True)
+                elif event_type == "no_command":
+                    print(f"[No command recognized: '{data.get('text', '')}']", flush=True)
+
+        # State machine
+        state = MonitorState.WAITING
+
+        for utterance in recognizer.transcribe_stream(
+            audio_generator(),
+            silence_threshold_db=silence_threshold,
+            min_silence_duration=silence_duration,
+            sample_rate=sample_rate,
+        ):
+            if not utterance.text:
+                continue
+
+            text = utterance.text.strip()
+            logger.debug(f"Utterance: '{text}' (state: {state})")
+
+            if state == MonitorState.WAITING:
+                # Check for wake word
+                if _find_wake_word(text, wake_word) >= 0:
+                    # Extract any command after the wake word
+                    command_text = _extract_command_after_wake_word(text, wake_word)
+
+                    if command_text:
+                        # Same utterance mode: wake word + command in one phrase
+                        output_event("wake_word", {"text": text, "mode": "same_utterance"})
+
+                        # Parse and execute command
+                        parsed = command_parser.parse(command_text)
+                        if parsed:
+                            output_event(
+                                "command",
+                                {
+                                    "action_type": parsed.action_type,
+                                    "arguments": parsed.arguments,
+                                    "raw": command_text,
+                                },
+                            )
+                            result = executor.execute(parsed)
+                            output_event(
+                                "result",
+                                {
+                                    "success": result.success,
+                                    "message": result.message,
+                                    "error": result.error,
+                                },
+                            )
+                        else:
+                            output_event("no_command", {"text": command_text})
+                        # Stay in WAITING state
+                    else:
+                        # Two-phase mode: wake word only, wait for command
+                        output_event("wake_word", {"text": text, "mode": "two_phase"})
+                        output_event("listening", {})
+                        state = MonitorState.LISTENING_FOR_COMMAND
+
+            elif state == MonitorState.LISTENING_FOR_COMMAND:
+                # Parse the utterance as a command
+                parsed = command_parser.parse(text)
+                if parsed:
+                    output_event(
+                        "command",
+                        {
+                            "action_type": parsed.action_type,
+                            "arguments": parsed.arguments,
+                            "raw": text,
+                        },
+                    )
+                    result = executor.execute(parsed)
+                    output_event(
+                        "result",
+                        {
+                            "success": result.success,
+                            "message": result.message,
+                            "error": result.error,
+                        },
+                    )
+                else:
+                    output_event("no_command", {"text": text})
+
+                # Return to waiting for wake word
+                state = MonitorState.WAITING
+
+        recognizer.cleanup()
+        logger.info("Monitoring stopped")
+
+    except AudioCaptureError as e:
+        print(f"Audio Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except RuntimeError as e:
+        print(f"Recognition Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Unexpected Error: {e}", file=sys.stderr)
+        logger.exception("Unexpected error during monitoring")
+        sys.exit(1)
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -510,6 +763,61 @@ def main():
         help="Output as JSON lines instead of plain text",
     )
 
+    # Monitor command
+    monitor_parser = subparsers.add_parser(
+        "monitor",
+        help="Wake word monitoring mode - listens for wake word then executes commands",
+    )
+    monitor_parser.add_argument(
+        "--device",
+        "-D",
+        type=int,
+        default=None,
+        help="Device index to use (default: from config)",
+    )
+    monitor_parser.add_argument(
+        "--model-size",
+        "-m",
+        type=str,
+        default=None,
+        help="Model size to use (overrides config). faster-whisper: tiny/base/small/medium/large, vosk: small/large",
+    )
+    monitor_parser.add_argument(
+        "--engine",
+        "-e",
+        type=str,
+        choices=["faster-whisper", "vosk"],
+        default=None,
+        help="STT engine to use (overrides config). Options: faster-whisper, vosk",
+    )
+    monitor_parser.add_argument(
+        "--silence-threshold",
+        "-t",
+        type=float,
+        default=None,
+        help="Silence threshold in dB (default: -35.0)",
+    )
+    monitor_parser.add_argument(
+        "--silence-duration",
+        "-s",
+        type=float,
+        default=None,
+        help="Silence duration in seconds to mark utterance end (default: 0.8)",
+    )
+    monitor_parser.add_argument(
+        "--wake-word",
+        "-w",
+        type=str,
+        default=None,
+        help="Wake word to listen for (default: from config, 'yawrungay')",
+    )
+    monitor_parser.add_argument(
+        "--json",
+        "-j",
+        action="store_true",
+        help="Output as JSON lines instead of plain text",
+    )
+
     # Config commands
     config_parser = subparsers.add_parser("config", help="Configuration management")
     config_subparsers = config_parser.add_subparsers(dest="config_command", help="Config commands")
@@ -544,6 +852,8 @@ def main():
         cmd_transcribe(args)
     elif args.command == "listen":
         cmd_listen(args)
+    elif args.command == "monitor":
+        cmd_monitor(args)
     elif args.command == "config":
         if hasattr(args, "func"):
             args.func(args)
