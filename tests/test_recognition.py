@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from yawrungay.recognition import get_recognizer
-from yawrungay.recognition.base import BaseRecognizer
+from yawrungay.recognition.base import BaseRecognizer, Utterance
 from yawrungay.recognition.faster_whisper import FasterWhisperRecognizer
 from yawrungay.recognition.vosk import VoskRecognizer
 
@@ -400,3 +400,146 @@ class TestVoskRecognizer:
         assert isinstance(recognizer, VoskRecognizer)
         assert recognizer.model_size == "large"
         assert recognizer.model_path == custom_path
+
+
+class TestUtterance:
+    """Test cases for Utterance class."""
+
+    def test_creation(self):
+        """Test creating an utterance."""
+        utterance = Utterance(text="Hello world")
+        assert utterance.text == "Hello world"
+        assert utterance.is_final is True
+        assert utterance.confidence is None
+
+    def test_partial_utterance(self):
+        """Test creating a partial utterance."""
+        utterance = Utterance(text="Hello", is_final=False)
+        assert utterance.text == "Hello"
+        assert utterance.is_final is False
+
+    def test_with_confidence(self):
+        """Test creating utterance with confidence."""
+        utterance = Utterance(text="Hello", confidence=0.95)
+        assert utterance.confidence == 0.95
+
+    def test_repr(self):
+        """Test string representation."""
+        utterance = Utterance(text="Hello")
+        assert "Hello" in repr(utterance)
+        assert "final" in repr(utterance)
+
+        partial = Utterance(text="Hello", is_final=False)
+        assert "partial" in repr(partial)
+
+
+class TestStreamingSupport:
+    """Test cases for streaming transcription support."""
+
+    @patch("yawrungay.recognition.faster_whisper.WhisperModel")
+    def test_faster_whisper_supports_streaming(self, mock_whisper_model):
+        """Test that faster-whisper reports streaming support."""
+        recognizer = FasterWhisperRecognizer(model_size="small")
+        assert recognizer.supports_streaming() is True
+
+    @patch("yawrungay.recognition.vosk.Model")
+    def test_vosk_supports_streaming(self, mock_vosk_model):
+        """Test that Vosk reports streaming support."""
+        recognizer = VoskRecognizer(model_size="small")
+        assert recognizer.supports_streaming() is True
+
+    @patch("yawrungay.recognition.faster_whisper.WhisperModel")
+    def test_faster_whisper_transcribe_stream_requires_model(self, mock_whisper_model):
+        """Test that streaming requires loaded model."""
+        recognizer = FasterWhisperRecognizer(model_size="small")
+
+        def audio_gen():
+            yield b"\x00" * 1024
+
+        with pytest.raises(RuntimeError, match="Model not loaded"):
+            list(recognizer.transcribe_stream(audio_gen()))
+
+    @patch("yawrungay.recognition.vosk.Model")
+    def test_vosk_transcribe_stream_requires_model(self, mock_vosk_model):
+        """Test that Vosk streaming requires loaded model."""
+        recognizer = VoskRecognizer(model_size="small")
+
+        def audio_gen():
+            yield b"\x00" * 1024
+
+        with pytest.raises(RuntimeError, match="Model not loaded"):
+            list(recognizer.transcribe_stream(audio_gen()))
+
+    @patch("yawrungay.recognition.faster_whisper.WhisperModel")
+    def test_faster_whisper_transcribe_stream(self, mock_whisper_model):
+        """Test faster-whisper streaming transcription."""
+        mock_model_instance = MagicMock()
+        mock_whisper_model.return_value = mock_model_instance
+
+        mock_segments = [MagicMock(text="Hello world")]
+        mock_model_instance.transcribe.return_value = (mock_segments, None)
+
+        recognizer = FasterWhisperRecognizer(model_size="small")
+        recognizer.load_model()
+
+        silence_chunk = struct.pack("<" + "h" * 1024, *([0] * 1024))
+        speech_chunk = struct.pack("<" + "h" * 1024, *([10000] * 1024))
+
+        def audio_gen():
+            yield speech_chunk
+            yield speech_chunk
+            for _ in range(10):
+                yield silence_chunk
+
+        utterances = list(
+            recognizer.transcribe_stream(
+                audio_gen(),
+                min_silence_duration=0.5,
+                sample_rate=16000,
+            )
+        )
+
+        assert len(utterances) >= 1
+        assert utterances[0].text == "Hello world"
+        assert utterances[0].is_final is True
+
+    @patch("yawrungay.recognition.vosk.Model")
+    @patch("yawrungay.recognition.vosk.KaldiRecognizer")
+    def test_vosk_transcribe_stream(self, mock_kaldi, mock_vosk_model):
+        """Test Vosk streaming transcription."""
+        mock_exists = patch("yawrungay.recognition.vosk.Path.exists", return_value=True)
+        mock_exists.start()
+
+        mock_model_instance = MagicMock()
+        mock_vosk_model.return_value = mock_model_instance
+
+        mock_recognizer_instance = MagicMock()
+        mock_recognizer_instance.FinalResult.return_value = '{"text": "hello world"}'
+        mock_recognizer_instance.PartialResult.return_value = '{"partial": ""}'
+        mock_kaldi.return_value = mock_recognizer_instance
+
+        recognizer = VoskRecognizer(model_size="small")
+        recognizer.load_model()
+
+        silence_chunk = struct.pack("<" + "h" * 1600, *([0] * 1600))
+        speech_chunk = struct.pack("<" + "h" * 1600, *([10000] * 1600))
+
+        def audio_gen():
+            yield speech_chunk
+            yield speech_chunk
+            for _ in range(10):
+                yield silence_chunk
+
+        utterances = list(
+            recognizer.transcribe_stream(
+                audio_gen(),
+                min_silence_duration=0.5,
+                sample_rate=16000,
+            )
+        )
+
+        assert len(utterances) >= 1
+        assert utterances[0].text == "hello world"
+        assert utterances[0].is_final is True
+
+        mock_exists.stop()

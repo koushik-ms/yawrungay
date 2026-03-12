@@ -1,6 +1,32 @@
 """Base class for speech recognition engines."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from typing import Optional
+
+
+class Utterance:
+    """Represents a transcribed utterance from continuous listening.
+
+    Attributes:
+        text: The transcribed text.
+        is_final: Whether this is a final result (vs partial/interim).
+        confidence: Optional confidence score (0.0 to 1.0).
+    """
+
+    def __init__(
+        self,
+        text: str,
+        is_final: bool = True,
+        confidence: Optional[float] = None,
+    ) -> None:
+        self.text = text
+        self.is_final = is_final
+        self.confidence = confidence
+
+    def __repr__(self) -> str:
+        status = "final" if self.is_final else "partial"
+        return f"Utterance(text={self.text!r}, {status})"
 
 
 class BaseRecognizer(ABC):
@@ -45,6 +71,44 @@ class BaseRecognizer(ABC):
             True if the model is ready, False otherwise.
         """
         pass
+
+    def supports_streaming(self) -> bool:
+        """Check if this recognizer supports streaming transcription.
+
+        Returns:
+            True if transcribe_stream is implemented for real-time use.
+        """
+        return False
+
+    def transcribe_stream(
+        self,
+        audio_chunks: Iterator[bytes],
+        silence_threshold_db: float = -35.0,
+        min_silence_duration: float = 0.8,
+        sample_rate: int = 16000,
+    ) -> Iterator[Utterance]:
+        """Transcribe audio stream, yielding utterances as detected.
+
+        This is an optional method for real-time continuous transcription.
+        Implementations should detect utterance boundaries based on silence
+        and yield Utterance objects as speech is recognized.
+
+        Args:
+            audio_chunks: Iterator yielding audio chunks (16-bit PCM bytes).
+            silence_threshold_db: dB threshold for silence detection.
+            min_silence_duration: Seconds of silence to mark utterance end.
+            sample_rate: Audio sample rate in Hz.
+
+        Yields:
+            Utterance objects containing transcribed text.
+
+        Raises:
+            NotImplementedError: If streaming is not supported by this engine.
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support streaming transcription. "
+            "Use transcribe() for batch processing."
+        )
 
     def cleanup(self) -> None:  # noqa: B027
         """Clean up resources used by the recognizer.

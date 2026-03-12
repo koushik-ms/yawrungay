@@ -35,6 +35,10 @@ from yawrungay.audio.devices import (
     print_device_list,
 )
 from yawrungay.audio.processing import (
+    DEFAULT_MIN_SILENCE_DURATION,
+    DEFAULT_SILENCE_THRESHOLD_DB,
+    SilenceDetector,
+    SilenceState,
     apply_noise_gate,
     bytes_to_numpy,
     calculate_db,
@@ -61,6 +65,10 @@ __all__ = [
     "list_audio_devices",
     "print_device_list",
     # Processing
+    "DEFAULT_MIN_SILENCE_DURATION",
+    "DEFAULT_SILENCE_THRESHOLD_DB",
+    "SilenceDetector",
+    "SilenceState",
     "apply_noise_gate",
     "bytes_to_numpy",
     "calculate_db",

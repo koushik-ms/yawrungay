@@ -3,18 +3,22 @@
 import argparse
 import json
 import logging
+import signal
 import sys
 import time
+from collections.abc import Generator
 
 from yawrungay.audio import (
     AudioCapture,
     AudioCaptureError,
     AudioConfig,
+    SilenceDetector,
+    SilenceState,
     preprocess_for_stt,
     print_device_list,
 )
 from yawrungay.config import ConfigError, Settings
-from yawrungay.recognition import get_recognizer
+from yawrungay.recognition import Utterance, get_recognizer
 
 logger = logging.getLogger(__name__)
 # Configure logging (will be overridden by settings)
@@ -257,6 +261,117 @@ def cmd_transcribe(args):
         sys.exit(1)
 
 
+class StopListening(Exception):
+    """Exception raised to stop continuous listening."""
+
+    pass
+
+
+def cmd_listen(args):
+    """Command for continuous listening mode."""
+    try:
+        settings = Settings(custom_config_path=args.config)
+    except ConfigError as e:
+        print(f"Configuration Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Use CLI args if provided, otherwise use config
+    device_index = args.device if args.device is not None else settings.get_audio_device()
+    model_size = args.model_size if args.model_size else settings.get_model_size()
+    stt_engine = args.engine if args.engine else settings.get_stt_engine()
+    silence_threshold = args.silence_threshold if args.silence_threshold else -35.0
+    silence_duration = args.silence_duration if args.silence_duration else 0.8
+    output_json = args.json
+
+    sample_rate = settings.get_sample_rate()
+    chunk_size = settings.get_chunk_size()
+
+    config = AudioConfig(
+        sample_rate=sample_rate,
+        chunk_size=chunk_size,
+        channels=settings.get_channels(),
+        device_index=device_index,
+    )
+
+    stop_flag = False
+
+    def signal_handler(signum, frame):
+        nonlocal stop_flag
+        stop_flag = True
+        logger.info("Received signal to stop listening")
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
+    try:
+        logger.info(f"Loading {stt_engine} model ({model_size})...")
+        recognizer = get_recognizer(
+            engine=stt_engine,
+            model_size=model_size,
+            cache_dir=settings.get_model_cache_dir() if stt_engine == "faster-whisper" else None,
+            model_path=settings.get_vosk_model_path() if stt_engine == "vosk" else None,
+            compute_type=settings.get_compute_type() if stt_engine == "faster-whisper" else "int8",
+        )
+        recognizer.load_model()
+
+        if not recognizer.is_ready():
+            print("Error: Failed to load recognition model", file=sys.stderr)
+            sys.exit(1)
+
+        logger.info("Model loaded successfully")
+
+        def audio_generator() -> Generator[bytes, None, None]:
+            """Generator yielding audio chunks until stop signal."""
+            with AudioCapture(config) as capture:
+                capture.start()
+                logger.info("Listening... (press Ctrl+C to stop)")
+
+                while not stop_flag:
+                    chunk = capture.read_chunk(timeout=0.1)
+                    if chunk is not None:
+                        yield chunk
+
+        def output_utterance(utterance: Utterance) -> None:
+            """Output an utterance to stdout."""
+            if not utterance.text:
+                return
+
+            if output_json:
+                output = json.dumps(
+                    {
+                        "text": utterance.text,
+                        "is_final": utterance.is_final,
+                        "timestamp": time.time(),
+                    },
+                    ensure_ascii=False,
+                )
+                print(output, flush=True)
+            else:
+                print(utterance.text, flush=True)
+
+        for utterance in recognizer.transcribe_stream(
+            audio_generator(),
+            silence_threshold_db=silence_threshold,
+            min_silence_duration=silence_duration,
+            sample_rate=sample_rate,
+        ):
+            output_utterance(utterance)
+
+        recognizer.cleanup()
+        logger.info("Listening stopped")
+
+    except AudioCaptureError as e:
+        print(f"Audio Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except RuntimeError as e:
+        print(f"Recognition Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Unexpected Error: {e}", file=sys.stderr)
+        logger.exception("Unexpected error during listening")
+        sys.exit(1)
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -347,6 +462,54 @@ def main():
         help="STT engine to use (overrides config). Options: faster-whisper, vosk",
     )
 
+    # Listen command
+    listen_parser = subparsers.add_parser(
+        "listen",
+        help="Continuous listening mode - transcribes speech and outputs text",
+    )
+    listen_parser.add_argument(
+        "--device",
+        "-D",
+        type=int,
+        default=None,
+        help="Device index to use (default: from config)",
+    )
+    listen_parser.add_argument(
+        "--model-size",
+        "-m",
+        type=str,
+        default=None,
+        help="Model size to use (overrides config). faster-whisper: tiny/base/small/medium/large, vosk: small/large",
+    )
+    listen_parser.add_argument(
+        "--engine",
+        "-e",
+        type=str,
+        choices=["faster-whisper", "vosk"],
+        default=None,
+        help="STT engine to use (overrides config). Options: faster-whisper, vosk",
+    )
+    listen_parser.add_argument(
+        "--silence-threshold",
+        "-t",
+        type=float,
+        default=-35.0,
+        help="Silence threshold in dB (default: -35.0)",
+    )
+    listen_parser.add_argument(
+        "--silence-duration",
+        "-s",
+        type=float,
+        default=0.8,
+        help="Silence duration in seconds to mark utterance end (default: 0.8)",
+    )
+    listen_parser.add_argument(
+        "--json",
+        "-j",
+        action="store_true",
+        help="Output as JSON lines instead of plain text",
+    )
+
     # Config commands
     config_parser = subparsers.add_parser("config", help="Configuration management")
     config_subparsers = config_parser.add_subparsers(dest="config_command", help="Config commands")
@@ -379,6 +542,8 @@ def main():
         cmd_stream_test(args)
     elif args.command == "transcribe":
         cmd_transcribe(args)
+    elif args.command == "listen":
+        cmd_listen(args)
     elif args.command == "config":
         if hasattr(args, "func"):
             args.func(args)

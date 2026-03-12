@@ -1,12 +1,14 @@
 """Speech recognition using faster-whisper (OpenAI Whisper optimized)."""
 
 import logging
+from collections.abc import Iterator
 from pathlib import Path
 
 import numpy as np
 from faster_whisper import WhisperModel
 
-from yawrungay.recognition.base import BaseRecognizer
+from yawrungay.audio import SilenceDetector, SilenceState
+from yawrungay.recognition.base import BaseRecognizer, Utterance
 
 logger = logging.getLogger(__name__)
 
@@ -153,3 +155,75 @@ class FasterWhisperRecognizer(BaseRecognizer):
         if self._model is not None:
             logger.debug("Cleaning up faster-whisper recognizer")
             self._model = None
+
+    def supports_streaming(self) -> bool:
+        """Faster-whisper supports buffered streaming.
+
+        Returns:
+            True - via buffered approach with silence detection.
+        """
+        return True
+
+    def transcribe_stream(
+        self,
+        audio_chunks: Iterator[bytes],
+        silence_threshold_db: float = -35.0,
+        min_silence_duration: float = 0.8,
+        sample_rate: int = 16000,
+    ) -> Iterator[Utterance]:
+        """Transcribe audio stream using buffered approach.
+
+        Faster-whisper doesn't have native streaming, so this implementation
+        buffers audio chunks and transcribes when silence is detected.
+
+        Args:
+            audio_chunks: Iterator yielding audio chunks (16-bit PCM bytes).
+            silence_threshold_db: dB threshold for silence detection.
+            min_silence_duration: Seconds of silence to mark utterance end.
+            sample_rate: Audio sample rate in Hz.
+
+        Yields:
+            Utterance objects containing transcribed text.
+
+        Raises:
+            RuntimeError: If model is not loaded.
+        """
+        if not self.is_ready():
+            raise RuntimeError("Model not loaded. Call load_model() first.")
+
+        silence_detector = SilenceDetector(
+            threshold_db=silence_threshold_db,
+            min_silence_duration=min_silence_duration,
+            sample_rate=sample_rate,
+        )
+
+        buffer: list[bytes] = []
+
+        logger.debug("Starting faster-whisper streaming transcription")
+
+        for chunk in audio_chunks:
+            if not chunk:
+                continue
+
+            buffer.append(chunk)
+            silence_state = silence_detector.process_chunk(chunk)
+
+            if silence_state == SilenceState.UTTERANCE_END:
+                if buffer:
+                    audio_data = b"".join(buffer)
+                    text = self.transcribe(audio_data)
+
+                    if text.strip():
+                        logger.debug(f"Faster-whisper streaming utterance: {text}")
+                        yield Utterance(text=text, is_final=True, confidence=None)
+
+                    buffer.clear()
+                    silence_detector.reset()
+
+        if buffer:
+            audio_data = b"".join(buffer)
+            text = self.transcribe(audio_data)
+
+            if text.strip():
+                logger.debug(f"Faster-whisper streaming final utterance: {text}")
+                yield Utterance(text=text, is_final=True, confidence=None)

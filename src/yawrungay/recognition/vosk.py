@@ -5,13 +5,15 @@ import logging
 import os
 import shutil
 import zipfile
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Optional
 from urllib import request
 
 from vosk import KaldiRecognizer, Model
 
-from yawrungay.recognition.base import BaseRecognizer
+from yawrungay.audio import SilenceDetector, SilenceState
+from yawrungay.recognition.base import BaseRecognizer, Utterance
 
 logger = logging.getLogger(__name__)
 
@@ -236,3 +238,91 @@ class VoskRecognizer(BaseRecognizer):
             logger.debug("Cleaning up Vosk recognizer")
             self._model = None
             self._recognizer = None
+
+    def supports_streaming(self) -> bool:
+        """Vosk supports native streaming transcription.
+
+        Returns:
+            True - Vosk has built-in streaming support.
+        """
+        return True
+
+    def transcribe_stream(
+        self,
+        audio_chunks: Iterator[bytes],
+        silence_threshold_db: float = -35.0,
+        min_silence_duration: float = 0.8,
+        sample_rate: int = 16000,
+    ) -> Iterator[Utterance]:
+        """Transcribe audio stream using Vosk's native streaming.
+
+        Uses Vosk's AcceptWaveform/PartialResult/FinalResult API for
+        real-time transcription with utterance boundary detection.
+
+        Args:
+            audio_chunks: Iterator yielding audio chunks (16-bit PCM bytes).
+            silence_threshold_db: dB threshold for silence detection.
+            min_silence_duration: Seconds of silence to mark utterance end.
+            sample_rate: Audio sample rate in Hz.
+
+        Yields:
+            Utterance objects containing transcribed text.
+
+        Raises:
+            RuntimeError: If model is not loaded.
+        """
+        if not self.is_ready():
+            raise RuntimeError("Model not loaded. Call load_model() first.")
+
+        silence_detector = SilenceDetector(
+            threshold_db=silence_threshold_db,
+            min_silence_duration=min_silence_duration,
+            sample_rate=sample_rate,
+        )
+
+        recognizer = KaldiRecognizer(self._model, sample_rate)
+        buffer: list[bytes] = []
+        current_text = ""
+        last_partial = ""
+
+        logger.debug("Starting Vosk streaming transcription")
+
+        for chunk in audio_chunks:
+            if not chunk:
+                continue
+
+            buffer.append(chunk)
+            silence_state = silence_detector.process_chunk(chunk)
+
+            recognizer.AcceptWaveform(chunk)
+
+            if silence_state == SilenceState.SPEECH:
+                partial_json = recognizer.PartialResult()
+                partial_result = json.loads(partial_json)
+                partial_text = partial_result.get("partial", "")
+
+                if partial_text and partial_text != last_partial:
+                    last_partial = partial_text
+
+            elif silence_state == SilenceState.UTTERANCE_END:
+                final_json = recognizer.FinalResult()
+                final_result = json.loads(final_json)
+                text = final_result.get("text", "").strip()
+
+                if text:
+                    logger.debug(f"Vosk streaming utterance: {text}")
+                    yield Utterance(text=text, is_final=True, confidence=None)
+
+                buffer.clear()
+                current_text = ""
+                last_partial = ""
+                silence_detector.reset()
+
+        if buffer:
+            final_json = recognizer.FinalResult()
+            final_result = json.loads(final_json)
+            text = final_result.get("text", "").strip()
+
+            if text:
+                logger.debug(f"Vosk streaming final utterance: {text}")
+                yield Utterance(text=text, is_final=True, confidence=None)

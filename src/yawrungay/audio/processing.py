@@ -1,6 +1,8 @@
 """Audio preprocessing utilities."""
 
 import logging
+from dataclasses import dataclass, field
+from enum import Enum
 from typing import Optional
 
 import numpy as np
@@ -10,6 +12,120 @@ logger = logging.getLogger(__name__)
 
 # Default noise gate threshold (in dB relative to full scale)
 DEFAULT_NOISE_GATE_THRESHOLD_DB = -40.0
+
+# Default silence detection threshold for continuous listening
+DEFAULT_SILENCE_THRESHOLD_DB = -35.0
+DEFAULT_MIN_SILENCE_DURATION = 0.8  # seconds
+
+
+class SilenceState(Enum):
+    """State returned by SilenceDetector for each audio chunk."""
+
+    SPEECH = "speech"  # Currently detecting speech
+    SILENCE = "silence"  # Currently in silence (but not enough to finalize)
+    UTTERANCE_END = "utterance_end"  # Silence duration exceeded, utterance complete
+
+
+@dataclass
+class SilenceDetector:
+    """Detects silence boundaries in audio streams for utterance segmentation.
+
+    Used for continuous listening mode to separate utterances based on
+    silence duration. Tracks consecutive silent chunks to determine when
+    an utterance has ended.
+
+    Attributes:
+        threshold_db: dB threshold below which audio is considered silence.
+        min_silence_duration: Minimum seconds of silence to mark utterance end.
+        sample_rate: Audio sample rate in Hz.
+        chunk_size: Expected chunk size in samples (for timing calculations).
+    """
+
+    threshold_db: float = DEFAULT_SILENCE_THRESHOLD_DB
+    min_silence_duration: float = DEFAULT_MIN_SILENCE_DURATION
+    sample_rate: int = 16000
+    chunk_size: int = 1024
+
+    _consecutive_silence_chunks: int = field(default=0, init=False, repr=False)
+    _in_speech: bool = field(default=False, init=False, repr=False)
+    _speech_chunks: int = field(default=0, init=False, repr=False)
+
+    @property
+    def _chunks_for_utterance_end(self) -> int:
+        """Number of silent chunks needed to trigger utterance end."""
+        chunk_duration = self.chunk_size / self.sample_rate
+        return int(self.min_silence_duration / chunk_duration)
+
+    @property
+    def silence_duration(self) -> float:
+        """Current consecutive silence duration in seconds."""
+        chunk_duration = self.chunk_size / self.sample_rate
+        return self._consecutive_silence_chunks * chunk_duration
+
+    def is_silent_chunk(self, audio_bytes: bytes) -> bool:
+        """Check if a single chunk is silent.
+
+        Args:
+            audio_bytes: Audio chunk as bytes.
+
+        Returns:
+            True if chunk RMS is below threshold.
+        """
+        if not audio_bytes:
+            return True
+        db = calculate_db(audio_bytes)
+        return db < self.threshold_db
+
+    def process_chunk(self, audio_bytes: bytes) -> SilenceState:
+        """Process an audio chunk and return the current state.
+
+        Args:
+            audio_bytes: Audio chunk as bytes (16-bit PCM).
+
+        Returns:
+            SilenceState indicating current detection state:
+            - SPEECH: Currently detecting speech
+            - SILENCE: In silence but not enough to finalize utterance
+            - UTTERANCE_END: Silence duration exceeded, utterance complete
+        """
+        is_silent = self.is_silent_chunk(audio_bytes)
+
+        if is_silent:
+            self._consecutive_silence_chunks += 1
+
+            if self._in_speech and self._consecutive_silence_chunks >= self._chunks_for_utterance_end:
+                self._in_speech = False
+                self._speech_chunks = 0
+                return SilenceState.UTTERANCE_END
+            return SilenceState.SILENCE
+        else:
+            self._consecutive_silence_chunks = 0
+            self._in_speech = True
+            self._speech_chunks += 1
+            return SilenceState.SPEECH
+
+    @property
+    def in_speech(self) -> bool:
+        """Whether currently in a speech segment."""
+        return self._in_speech
+
+    @property
+    def speech_duration(self) -> float:
+        """Current speech duration in seconds."""
+        chunk_duration = self.chunk_size / self.sample_rate
+        return self._speech_chunks * chunk_duration
+
+    def reset(self) -> None:
+        """Reset detector state."""
+        self._consecutive_silence_chunks = 0
+        self._in_speech = False
+        self._speech_chunks = 0
+
+    def start_speech(self) -> None:
+        """Manually mark start of speech (e.g., after wake word)."""
+        self._in_speech = True
+        self._consecutive_silence_chunks = 0
+        self._speech_chunks = 0
 
 
 def bytes_to_numpy(

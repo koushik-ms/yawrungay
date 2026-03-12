@@ -4,6 +4,10 @@ import numpy as np
 import pytest
 
 from yawrungay.audio.processing import (
+    DEFAULT_MIN_SILENCE_DURATION,
+    DEFAULT_SILENCE_THRESHOLD_DB,
+    SilenceDetector,
+    SilenceState,
     apply_noise_gate,
     bytes_to_numpy,
     calculate_db,
@@ -230,3 +234,176 @@ class TestPreprocessForSTT:
 
         # Should maintain same number of samples
         assert len(result_array) == 16000
+
+
+class TestSilenceDetector:
+    """Test cases for SilenceDetector class."""
+
+    def test_default_values(self):
+        """Test default initialization."""
+        detector = SilenceDetector()
+        assert detector.threshold_db == DEFAULT_SILENCE_THRESHOLD_DB
+        assert detector.min_silence_duration == DEFAULT_MIN_SILENCE_DURATION
+        assert detector.sample_rate == 16000
+        assert detector.chunk_size == 1024
+
+    def test_custom_values(self):
+        """Test custom initialization."""
+        detector = SilenceDetector(
+            threshold_db=-40.0,
+            min_silence_duration=1.0,
+            sample_rate=8000,
+            chunk_size=512,
+        )
+        assert detector.threshold_db == -40.0
+        assert detector.min_silence_duration == 1.0
+        assert detector.sample_rate == 8000
+        assert detector.chunk_size == 512
+
+    def test_is_silent_chunk_silence(self):
+        """Test detecting silent chunk."""
+        detector = SilenceDetector(threshold_db=-35.0)
+        silence = np.zeros(1024, dtype=np.int16)
+        audio_bytes = silence.tobytes()
+
+        assert detector.is_silent_chunk(audio_bytes) is True
+
+    def test_is_silent_chunk_speech(self):
+        """Test detecting speech chunk."""
+        detector = SilenceDetector(threshold_db=-35.0)
+        speech = np.full(1024, 10000, dtype=np.int16)
+        audio_bytes = speech.tobytes()
+
+        assert detector.is_silent_chunk(audio_bytes) == False
+
+    def test_process_chunk_silence(self):
+        """Test processing silent chunk."""
+        detector = SilenceDetector()
+        silence = np.zeros(1024, dtype=np.int16)
+        audio_bytes = silence.tobytes()
+
+        state = detector.process_chunk(audio_bytes)
+        assert state == SilenceState.SILENCE
+        assert detector.in_speech is False
+
+    def test_process_chunk_speech(self):
+        """Test processing speech chunk."""
+        detector = SilenceDetector()
+        speech = np.full(1024, 10000, dtype=np.int16)
+        audio_bytes = speech.tobytes()
+
+        state = detector.process_chunk(audio_bytes)
+        assert state == SilenceState.SPEECH
+        assert detector.in_speech is True
+
+    def test_utterance_end_detection(self):
+        """Test detecting utterance end after silence."""
+        detector = SilenceDetector(
+            threshold_db=-35.0,
+            min_silence_duration=0.2,  # 200ms silence
+            sample_rate=16000,
+            chunk_size=1600,  # 100ms chunks
+        )
+
+        speech = np.full(1600, 10000, dtype=np.int16)
+        silence = np.zeros(1600, dtype=np.int16)
+
+        speech_bytes = speech.tobytes()
+        silence_bytes = silence.tobytes()
+
+        state = detector.process_chunk(speech_bytes)
+        assert state == SilenceState.SPEECH
+        assert detector.in_speech is True
+
+        state = detector.process_chunk(speech_bytes)
+        assert state == SilenceState.SPEECH
+
+        state = detector.process_chunk(silence_bytes)
+        assert state == SilenceState.SILENCE
+        assert detector.in_speech is True
+
+        state = detector.process_chunk(silence_bytes)
+        assert state == SilenceState.UTTERANCE_END
+        assert detector.in_speech is False
+
+    def test_utterance_end_from_initial_silence(self):
+        """Test that initial silence doesn't trigger utterance end."""
+        detector = SilenceDetector(
+            threshold_db=-35.0,
+            min_silence_duration=0.1,
+            sample_rate=16000,
+            chunk_size=1600,
+        )
+
+        silence = np.zeros(1600, dtype=np.int16)
+        silence_bytes = silence.tobytes()
+
+        state = detector.process_chunk(silence_bytes)
+        assert state == SilenceState.SILENCE
+        assert detector.in_speech is False
+
+        state = detector.process_chunk(silence_bytes)
+        assert state == SilenceState.SILENCE
+
+    def test_reset(self):
+        """Test resetting detector state."""
+        detector = SilenceDetector()
+        speech = np.full(1024, 10000, dtype=np.int16)
+        audio_bytes = speech.tobytes()
+
+        detector.process_chunk(audio_bytes)
+        assert detector.in_speech is True
+
+        detector.reset()
+        assert detector.in_speech is False
+        assert detector.silence_duration == 0.0
+
+    def test_silence_duration(self):
+        """Test silence duration calculation."""
+        detector = SilenceDetector(
+            sample_rate=16000,
+            chunk_size=1600,  # 100ms chunks
+        )
+        silence = np.zeros(1600, dtype=np.int16)
+        audio_bytes = silence.tobytes()
+
+        detector.process_chunk(audio_bytes)
+        assert abs(detector.silence_duration - 0.1) < 0.001
+
+        detector.process_chunk(audio_bytes)
+        assert abs(detector.silence_duration - 0.2) < 0.001
+
+    def test_speech_duration(self):
+        """Test speech duration calculation."""
+        detector = SilenceDetector(
+            sample_rate=16000,
+            chunk_size=1600,  # 100ms chunks
+        )
+        speech = np.full(1600, 10000, dtype=np.int16)
+        audio_bytes = speech.tobytes()
+
+        detector.process_chunk(audio_bytes)
+        assert abs(detector.speech_duration - 0.1) < 0.001
+
+        detector.process_chunk(audio_bytes)
+        assert abs(detector.speech_duration - 0.2) < 0.001
+
+    def test_start_speech(self):
+        """Test manually starting speech."""
+        detector = SilenceDetector()
+
+        assert detector.in_speech is False
+
+        detector.start_speech()
+        assert detector.in_speech is True
+        assert detector.silence_duration == 0.0
+
+
+class TestSilenceState:
+    """Test cases for SilenceState enum."""
+
+    def test_values(self):
+        """Test enum values."""
+        assert SilenceState.SPEECH.value == "speech"
+        assert SilenceState.SILENCE.value == "silence"
+        assert SilenceState.UTTERANCE_END.value == "utterance_end"

@@ -1,12 +1,13 @@
 """Speech recognition engines for Yawrungay."""
 
-from yawrungay.recognition.base import BaseRecognizer
+from yawrungay.recognition.base import BaseRecognizer, Utterance
 from yawrungay.recognition.faster_whisper import FasterWhisperRecognizer
 from yawrungay.recognition.vosk import VoskRecognizer
 
 __all__ = [
     "BaseRecognizer",
     "FasterWhisperRecognizer",
+    "Utterance",
     "VoskRecognizer",
     "get_recognizer",
 ]
