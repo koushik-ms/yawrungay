@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 from yawrungay.parsing.base import Phrase
+from yawrungay.utils import find_project_dirs
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +14,27 @@ DEFAULT_PHRASE_DIRS = [
     Path.home() / ".config" / "yawrungay" / "phrases",
     Path("/etc") / "yawrungay" / "phrases",
 ]
+
+
+def get_phrase_dirs() -> list[Path]:
+    """Get all phrase directories in priority order.
+
+    Priority (lowest to highest):
+    1. /etc/yawrungay/phrases (system)
+    2. ~/.config/yawrungay/phrases (user)
+    3. .yawrungay/phrases in cwd/parents (project - highest)
+
+    Returns:
+        List of phrase directories in priority order.
+    """
+    dirs = list(DEFAULT_PHRASE_DIRS)
+    project_dirs = find_project_dirs(Path.cwd(), ".yawrungay")
+    for project_dir in project_dirs:
+        phrase_dir = project_dir / "phrases"
+        if phrase_dir.exists() and phrase_dir.is_dir():
+            dirs.append(phrase_dir)
+    return dirs
+
 
 TAG_PATTERN = re.compile(r"^(@\w+)\s*")
 
@@ -33,9 +55,13 @@ class PhraseFileLoader:
 
         Args:
             phrase_dirs: Directories to search for .phrases files.
-                        Default: ~/.config/yawrungay/phrases and /etc/yawrungay/phrases
+                        Default: project dirs (.yawrungay/phrases in cwd/parents),
+                        then user (~/.config/yawrungay/phrases),
+                        then system (/etc/yawrungay/phrases)
         """
-        self._phrase_dirs = phrase_dirs or DEFAULT_PHRASE_DIRS
+        if phrase_dirs is None:
+            phrase_dirs = get_phrase_dirs()
+        self._phrase_dirs = phrase_dirs
         self._phrases: dict[str, Phrase] = {}
 
     def load_all(self) -> dict[str, Phrase]:

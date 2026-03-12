@@ -118,10 +118,40 @@ src/yawrungay/
 │   ├── base.py           # Base TTS interface
 │   └── engine.py         # TTS engine implementations
 └── utils/
-    ├── __init__.py
-    ├── logging.py        # Logging setup
-    └── paths.py          # Path utilities
+    ├── __init__.py         # Shared utilities (path finding, git root detection)
+    ├── logging.py          # Logging setup
+    └── paths.py            # Path utilities
 ```
+
+### Project Discovery Logic
+
+Yawrungay discovers project-level configuration and phrases by searching for `.yawrungay` directories. This applies to both config files and phrase files.
+
+**Search Behavior:**
+- Starts from the current working directory
+- Walks up through parent directories
+- Stops at git repository root (if inside a git repo) OR user's home directory (if not in a git repo)
+- Searches the boundary directory itself as well
+
+**Priority Order (lowest to highest):**
+
+For configuration (`~/.config/yawrungay/config.yaml`):
+1. `/etc/yawrungay/config.yaml` (system - if present)
+2. `~/.config/yawrungay/config.yaml` (user)
+3. `.yawrungay/config.yaml` in cwd/parents (project - highest)
+
+For phrases:
+1. `/etc/yawrungay/phrases/` (system)
+2. `~/.config/yawrungay/phrases/` (user)
+3. `.yawrungay/phrases/` in cwd/parents (project - highest)
+
+Project-level files are loaded last, so they take priority over user and system settings.
+
+### Utility Functions
+
+Shared utilities are in `src/yawrungay/utils/__init__.py`:
+- `find_git_root(start: Path) -> Path`: Finds git repository root, returns home if not in git repo
+- `find_project_dirs(start: Path, dirname: str) -> list[Path]`: Finds project directories by name
 
 ### Configuration Files
 
