@@ -416,7 +416,7 @@ def _find_wake_word(text: str, wake_word: str) -> int:
 def _extract_command_after_wake_word(text: str, wake_word: str) -> str:
     """Extract the command portion after the wake word.
 
-    Strips leading punctuation and whitespace after the wake word.
+    Strips leading and trailing punctuation and whitespace after the wake word.
 
     Args:
         text: The full utterance text.
@@ -430,8 +430,8 @@ def _extract_command_after_wake_word(text: str, wake_word: str) -> str:
         return ""
     # Skip past the wake word
     command = text[idx + len(wake_word) :]
-    # Strip whitespace and common punctuation that may follow wake word
-    command = command.lstrip(" \t\n\r,!.?;:").rstrip()
+    # Strip whitespace and common punctuation that may follow wake word (both leading and trailing)
+    command = command.lstrip(" \t\n\r,!.?;:").rstrip(" \t\n\r,!.?;:")
     return command
 
 
