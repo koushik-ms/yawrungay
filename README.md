@@ -75,7 +75,7 @@ sample_rate: 16000
 chunk_size: 1024
 
 # Wake Word
-wake_word: yawrungay
+wake_word: hey jarvis
 wake_word_sensitivity: 0.5
 
 # Text-to-Speech

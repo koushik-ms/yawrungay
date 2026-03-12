@@ -73,7 +73,7 @@ wake_word:
   enabled: false
 
   # Wake word keyword to listen for
-  keyword: yawrungay
+  keyword: hey jarvis
 
   # Wake word sensitivity
   # Range: 0.0 (least sensitive) to 1.0 (most sensitive)
