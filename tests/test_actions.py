@@ -81,31 +81,31 @@ class TestKeyboardAction:
         """Test parsing single key for xdotool."""
         action = KeyboardAction()
         combo = action._parse_keys_for_xdotool("a")
-        assert combo == "a"
+        assert combo == {"keys": ["a"], "modifiers": []}
 
     def test_parse_modifier_combo_xdotool(self):
         """Test parsing modifier + key combo for xdotool."""
         action = KeyboardAction()
         combo = action._parse_keys_for_xdotool("ctrl+c")
-        assert combo == "ctrl+c"
+        assert combo == {"keys": ["ctrl", "c"], "modifiers": ["ctrl"]}
 
     def test_parse_multiple_modifiers_xdotool(self):
         """Test parsing multiple modifiers for xdotool."""
         action = KeyboardAction()
         combo = action._parse_keys_for_xdotool("ctrl+shift+t")
-        assert combo == "ctrl+shift+t"
+        assert combo == {"keys": ["ctrl", "shift", "t"], "modifiers": ["ctrl", "shift"]}
 
     def test_parse_special_key_xdotool(self):
         """Test parsing special key for xdotool."""
         action = KeyboardAction()
         combo = action._parse_keys_for_xdotool("enter")
-        assert combo == "Return"
+        assert combo == {"keys": ["Return"], "modifiers": []}
 
     def test_parse_unknown_key_xdotool(self):
         """Test parsing unknown key returns empty for xdotool."""
         action = KeyboardAction()
         combo = action._parse_keys_for_xdotool("unknownkey")
-        assert combo == ""
+        assert combo == {"keys": [], "modifiers": []}
 
     def test_backend_detection(self):
         """Test that backend is detected."""

@@ -61,46 +61,169 @@ XDOTOOL_SPECIAL_KEYS = {
     "scrolllock": "Scroll_Lock",
 }
 
-# ydotool uses different key names (evdev keycodes or key names)
-YDOTOOL_SPECIAL_KEYS = {
-    "enter": "enter",
-    "return": "enter",
-    "tab": "tab",
-    "escape": "esc",
-    "esc": "esc",
-    "backspace": "backspace",
-    "delete": "delete",
-    "del": "delete",
-    "insert": "insert",
-    "home": "home",
-    "end": "end",
-    "pageup": "pageup",
-    "pagedown": "pagedown",
-    "up": "up",
-    "down": "down",
-    "left": "left",
-    "right": "right",
-    "space": "space",
-    "f1": "f1",
-    "f2": "f2",
-    "f3": "f3",
-    "f4": "f4",
-    "f5": "f5",
-    "f6": "f6",
-    "f7": "f7",
-    "f8": "f8",
-    "f9": "f9",
-    "f10": "f10",
-    "f11": "f11",
-    "f12": "f12",
-    "ctrl": "leftctrl",
-    "control": "leftctrl",
-    "alt": "leftalt",
-    "shift": "leftshift",
-    "super": "leftmeta",
-    "cmd": "leftmeta",
-    "win": "leftmeta",
-    "meta": "leftmeta",
+# ydotool uses evdev keycodes (numeric values)
+YDOTOOL_KEYCODES = {
+    # Modifiers
+    "ctrl": 29,
+    "control": 29,
+    "leftctrl": 29,
+    "rightctrl": 97,
+    "alt": 56,
+    "leftalt": 56,
+    "rightalt": 100,
+    "shift": 42,
+    "leftshift": 42,
+    "rightshift": 54,
+    "super": 125,
+    "meta": 125,
+    "leftmeta": 125,
+    "rightmeta": 127,
+    "cmd": 125,
+    "win": 125,
+    "capslock": 58,
+    "numlock": 69,
+    "scrolllock": 70,
+    # Numbers (top row)
+    "1": 2,
+    "2": 3,
+    "3": 4,
+    "4": 5,
+    "5": 6,
+    "6": 7,
+    "7": 8,
+    "8": 9,
+    "9": 10,
+    "0": 11,
+    # Letters (lowercase)
+    "a": 30,
+    "b": 48,
+    "c": 46,
+    "d": 32,
+    "e": 18,
+    "f": 33,
+    "g": 34,
+    "h": 35,
+    "i": 23,
+    "j": 36,
+    "k": 37,
+    "l": 38,
+    "m": 50,
+    "n": 49,
+    "o": 24,
+    "p": 25,
+    "q": 16,
+    "r": 19,
+    "s": 31,
+    "t": 20,
+    "u": 22,
+    "v": 47,
+    "w": 17,
+    "x": 45,
+    "y": 21,
+    "z": 44,
+    # Letters (uppercase - same as lowercase)
+    "A": 30,
+    "B": 48,
+    "C": 46,
+    "D": 32,
+    "E": 18,
+    "F": 33,
+    "G": 34,
+    "H": 35,
+    "I": 23,
+    "J": 36,
+    "K": 37,
+    "L": 38,
+    "M": 50,
+    "N": 49,
+    "O": 24,
+    "P": 25,
+    "Q": 16,
+    "R": 19,
+    "S": 31,
+    "T": 20,
+    "U": 22,
+    "V": 47,
+    "W": 17,
+    "X": 45,
+    "Y": 21,
+    "Z": 44,
+    # Special keys
+    "escape": 1,
+    "esc": 1,
+    "enter": 28,
+    "return": 28,
+    "tab": 15,
+    "backspace": 14,
+    "space": 57,
+    "minus": 12,
+    "-": 12,
+    "equal": 13,
+    "=": 13,
+    "leftbrace": 26,
+    "[": 26,
+    "rightbrace": 27,
+    "]": 27,
+    "backslash": 43,
+    "\\": 43,
+    "semicolon": 39,
+    ";": 39,
+    "apostrophe": 40,
+    "'": 40,
+    "grave": 41,
+    "`": 41,
+    "comma": 51,
+    ",": 51,
+    "dot": 52,
+    ".": 52,
+    "slash": 53,
+    "/": 53,
+    # Function keys
+    "f1": 59,
+    "f2": 60,
+    "f3": 61,
+    "f4": 62,
+    "f5": 63,
+    "f6": 64,
+    "f7": 65,
+    "f8": 66,
+    "f9": 67,
+    "f10": 68,
+    "f11": 87,
+    "f12": 88,
+    # Navigation keys
+    "home": 102,
+    "end": 107,
+    "pageup": 104,
+    "pagedown": 109,
+    "up": 105,
+    "down": 108,
+    "left": 106,
+    "right": 107,
+    "insert": 110,
+    "delete": 111,
+    "del": 111,
+    # Keypad
+    "kp0": 82,
+    "kp1": 79,
+    "kp2": 80,
+    "kp3": 81,
+    "kp4": 75,
+    "kp5": 76,
+    "kp6": 77,
+    "kp7": 71,
+    "kp8": 72,
+    "kp9": 83,
+    "kpminus": 74,
+    "kpplus": 78,
+    "kpdot": 83,
+    "kpslash": 98,
+    "kpenter": 96,
+    "kpnumlock": 76,
+    # Other
+    "pause": 119,
+    "sysrq": 99,
+    "printscreen": 99,
 }
 
 
@@ -250,15 +373,19 @@ class KeyboardAction(BaseAction):
     def _press_keys_ydotool(self, keys_str: str, context: ActionContext) -> ActionResult:
         """Press key combination using ydotool."""
         try:
-            # Parse key combination
-            key_names = self._parse_keys_for_ydotool(keys_str)
-            if not key_names:
+            key_parts = self._parse_keys_for_ydotool(keys_str)
+            if not key_parts:
                 return ActionResult(success=False, error=f"Invalid key combination: {keys_str}")
 
-            # ydotool key <key1> <key2> ...
-            # For combinations, use key1+key2+key3 format
-            key_combo = "+".join(key_names)
-            cmd = ["ydotool", "key", key_combo]
+            keys = key_parts["keys"]
+
+            key_events = []
+            for key in keys:
+                key_events.append(f"{key}:1")
+            for key in reversed(keys):
+                key_events.append(f"{key}:0")
+
+            cmd = ["ydotool", "key", *key_events]
 
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
 
@@ -277,25 +404,33 @@ class KeyboardAction(BaseAction):
             logger.error(f"ydotool key failed: {e}")
             return ActionResult(success=False, error=str(e))
 
-    def _parse_keys_for_ydotool(self, keys_str: str) -> list[str]:
-        """Parse key combination for ydotool."""
+    def _parse_keys_for_ydotool(self, keys_str: str) -> dict[str, list[str]]:
+        """Parse key combination for ydotool using evdev keycodes.
+
+        Returns:
+            Dict with 'keys' (list of keycode strings) and 'modifiers' (list of modifier keycodes).
+        """
         keys = []
+        modifiers = []
         parts = keys_str.lower().replace("-", "+").replace(" ", "+").split("+")
+
+        modifier_keycodes = {29, 56, 42, 125, 97, 100, 54, 127}
 
         for part in parts:
             part = part.strip()
             if not part:
                 continue
 
-            if part in YDOTOOL_SPECIAL_KEYS:
-                keys.append(YDOTOOL_SPECIAL_KEYS[part])
-            elif len(part) == 1 and part.isalnum():
-                keys.append(part)
+            if part in YDOTOOL_KEYCODES:
+                keycode = YDOTOOL_KEYCODES[part]
+                keys.append(str(keycode))
+                if keycode in modifier_keycodes:
+                    modifiers.append(str(keycode))
             else:
                 logger.warning(f"Unknown key for ydotool: {part}")
-                return []
+                return {}
 
-        return keys
+        return {"keys": keys, "modifiers": modifiers}
 
     # ===== xdotool backend =====
 
@@ -326,13 +461,20 @@ class KeyboardAction(BaseAction):
     def _press_keys_xdotool(self, keys_str: str, context: ActionContext) -> ActionResult:
         """Press key combination using xdotool."""
         try:
-            # Parse key combination for xdotool format
-            key_combo = self._parse_keys_for_xdotool(keys_str)
-            if not key_combo:
+            key_parts = self._parse_keys_for_xdotool(keys_str)
+            if not key_parts["keys"]:
                 return ActionResult(success=False, error=f"Invalid key combination: {keys_str}")
 
-            # xdotool key <key1+key2+key3>
-            cmd = ["xdotool", "key", key_combo]
+            keys = key_parts["keys"]
+            modifiers = key_parts["modifiers"]
+
+            cmd_parts = []
+            for key in keys:
+                cmd_parts.extend(["keydown", key])
+            for key in reversed(keys):
+                cmd_parts.extend(["keyup", key])
+
+            cmd = ["xdotool", *cmd_parts]
 
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
 
@@ -351,12 +493,14 @@ class KeyboardAction(BaseAction):
             logger.error(f"xdotool key failed: {e}")
             return ActionResult(success=False, error=str(e))
 
-    def _parse_keys_for_xdotool(self, keys_str: str) -> str:
+    def _parse_keys_for_xdotool(self, keys_str: str) -> dict[str, list[str]]:
         """Parse key combination for xdotool format.
 
-        Returns xdotool format: "ctrl+shift+a" or "ctrl+Return"
+        Returns:
+            Dict with 'keys' (list of key names) and 'modifiers' (list of modifier key names).
         """
         keys = []
+        modifiers = []
         parts = keys_str.lower().replace("-", "+").replace(" ", "+").split("+")
 
         for part in parts:
@@ -365,16 +509,18 @@ class KeyboardAction(BaseAction):
                 continue
 
             if part in XDOTOOL_MODIFIERS:
-                keys.append(XDOTOOL_MODIFIERS[part])
+                key_name = XDOTOOL_MODIFIERS[part]
+                keys.append(key_name)
+                modifiers.append(key_name)
             elif part in XDOTOOL_SPECIAL_KEYS:
                 keys.append(XDOTOOL_SPECIAL_KEYS[part])
             elif len(part) == 1:
                 keys.append(part)
             else:
                 logger.warning(f"Unknown key for xdotool: {part}")
-                return ""
+                return {"keys": [], "modifiers": []}
 
-        return "+".join(keys)
+        return {"keys": keys, "modifiers": modifiers}
 
     # ===== pynput backend (fallback) =====
 
