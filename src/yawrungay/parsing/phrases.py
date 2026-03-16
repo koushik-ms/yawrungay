@@ -3,7 +3,6 @@
 import logging
 import re
 from pathlib import Path
-from typing import Optional
 
 from yawrungay.parsing.base import Phrase
 from yawrungay.utils import find_project_dirs
@@ -91,7 +90,7 @@ class PhraseFileLoader:
         phrases = []
 
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 content = f.read()
 
             lines = self._join_continuation_lines(content.split("\n"))
@@ -145,7 +144,7 @@ class PhraseFileLoader:
 
         return result
 
-    def _parse_line(self, line: str, source_file: str) -> Optional[Phrase]:
+    def _parse_line(self, line: str, source_file: str) -> Phrase | None:
         """Parse a single phrase line.
 
         Args:
@@ -195,7 +194,7 @@ class PhraseFileLoader:
         """Get loaded phrases."""
         return self._phrases
 
-    def get_phrase(self, text: str) -> Optional[Phrase]:
+    def get_phrase(self, text: str) -> Phrase | None:
         """Get a phrase by text (case-insensitive).
 
         Args:

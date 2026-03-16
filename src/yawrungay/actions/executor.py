@@ -1,7 +1,6 @@
 """Action executor for Yawrungay."""
 
 import logging
-from typing import Optional
 
 from yawrungay.actions.base import ActionContext, ActionResult, BaseAction
 from yawrungay.actions.keyboard import KeyboardAction
@@ -19,7 +18,7 @@ class ActionExecutor:
     commands to the appropriate handler based on action type.
     """
 
-    def __init__(self, context: Optional[ActionContext] = None):
+    def __init__(self, context: ActionContext | None = None):
         """Initialize the executor.
 
         Args:
@@ -55,15 +54,13 @@ class ActionExecutor:
         Returns:
             List of action types this handler supports.
         """
+        action_type_map = {
+            "keyboard": ["type", "press"],
+            "mouse": ["mouse"],
+            "shell": ["open", "run"],
+        }
         name = action.name.lower()
-        if name == "keyboard":
-            return ["type", "press"]
-        elif name == "mouse":
-            return ["mouse"]
-        elif name == "shell":
-            return ["open", "run"]
-        else:
-            return [name]
+        return action_type_map.get(name, [name])
 
     def execute(self, command: ParsedCommand) -> ActionResult:
         """Execute a parsed command.

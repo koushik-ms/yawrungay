@@ -9,16 +9,14 @@ import time
 from collections.abc import Generator
 from pathlib import Path
 
+from yawrungay.actions import ActionExecutor
 from yawrungay.audio import (
     AudioCapture,
     AudioCaptureError,
     AudioConfig,
-    SilenceDetector,
-    SilenceState,
     preprocess_for_stt,
     print_device_list,
 )
-from yawrungay.actions import ActionExecutor
 from yawrungay.config import ConfigError, Settings
 from yawrungay.parsing import CommandParser, PhraseFileLoader
 from yawrungay.recognition import Utterance, get_recognizer
@@ -158,6 +156,7 @@ def cmd_config_show(args):
 def cmd_config_init(args):
     """Command to generate a configuration template."""
     import yaml
+
     from yawrungay.config import deep_merge, generate_config_template
 
     if args.config:
@@ -202,7 +201,7 @@ def cmd_config_init(args):
             print(f"Configuration template created: {config_file}")
             print("Edit the file to customize your settings")
         elif action == "updated":
-            print(f"Configuration updated: added missing fields with default values")
+            print("Configuration updated: added missing fields with default values")
             print(f"File: {config_file}")
         elif action == "overwritten":
             print(f"Configuration template overwritten: {config_file}")
@@ -287,10 +286,8 @@ def cmd_transcribe(args):
         sys.exit(1)
 
 
-class StopListening(Exception):
+class StopListeningError(Exception):
     """Exception raised to stop continuous listening."""
-
-    pass
 
 
 def cmd_listen(args):

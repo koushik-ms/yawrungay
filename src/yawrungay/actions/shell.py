@@ -3,7 +3,7 @@
 import logging
 import shutil
 import subprocess
-from typing import Any, Optional
+from typing import Any
 
 from yawrungay.actions.base import ActionContext, ActionResult, BaseAction
 
@@ -24,6 +24,7 @@ class ShellAction(BaseAction):
 
     @property
     def name(self) -> str:
+        """Get the action name."""
         return "shell"
 
     def execute(self, arguments: dict[str, Any], context: ActionContext) -> ActionResult:
@@ -97,7 +98,7 @@ class ShellAction(BaseAction):
             logger.warning(f"Blocked forbidden command: {command}")
             return ActionResult(
                 success=False,
-                error=f"Command contains forbidden word (sudo, su, etc.)",
+                error="Command contains forbidden word (sudo, su, etc.)",
             )
 
         try:
@@ -113,7 +114,7 @@ class ShellAction(BaseAction):
                 logger.info(f"Ran command: {command}")
                 return ActionResult(
                     success=True,
-                    message=f"Command executed successfully",
+                    message="Command executed successfully",
                     data={"stdout": result.stdout, "stderr": result.stderr},
                 )
             else:
@@ -143,7 +144,7 @@ class ShellAction(BaseAction):
         cmd_lower = command.lower()
         return not any(forbidden in cmd_lower for forbidden in FORBIDDEN_COMMANDS)
 
-    def validate_arguments(self, arguments: dict[str, Any]) -> Optional[str]:
+    def validate_arguments(self, arguments: dict[str, Any]) -> str | None:
         """Validate shell action arguments.
 
         Args:
@@ -177,7 +178,7 @@ def is_safe_command(command: str) -> bool:
     return not any(forbidden in cmd_lower for forbidden in FORBIDDEN_COMMANDS)
 
 
-def find_in_path(command: str) -> Optional[str]:
+def find_in_path(command: str) -> str | None:
     """Find an executable in PATH.
 
     Args:

@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
@@ -18,10 +18,11 @@ class ActionResult:
 
     success: bool
     message: str = ""
-    error: Optional[str] = None
+    error: str | None = None
     data: dict[str, Any] = field(default_factory=dict)
 
     def __repr__(self) -> str:
+        """Return string representation of ActionResult."""
         status = "✓" if self.success else "✗"
         return f"ActionResult({status}, {self.message or self.error})"
 
@@ -73,7 +74,7 @@ class BaseAction(ABC):
         """
         pass
 
-    def validate_arguments(self, arguments: dict[str, Any]) -> Optional[str]:
+    def validate_arguments(self, arguments: dict[str, Any]) -> str | None:
         """Validate action arguments.
 
         Override this method to provide argument validation.

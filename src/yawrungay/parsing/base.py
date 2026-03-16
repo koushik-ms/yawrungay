@@ -1,7 +1,6 @@
 """Data structures for command parsing."""
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
@@ -37,8 +36,9 @@ class ParsedCommand:
     arguments: dict[str, str | int]
     raw_phrase: str
     from_fallback: bool = False
-    phrase: Optional[Phrase] = None
+    phrase: Phrase | None = None
 
     def __repr__(self) -> str:
+        """Return string representation of ParsedCommand."""
         source = "fallback" if self.from_fallback else "phrase"
         return f"ParsedCommand({self.action_type}, {self.arguments}, {source})"

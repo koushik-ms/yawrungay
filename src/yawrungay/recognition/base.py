@@ -2,7 +2,6 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
-from typing import Optional
 
 
 class Utterance:
@@ -18,13 +17,21 @@ class Utterance:
         self,
         text: str,
         is_final: bool = True,
-        confidence: Optional[float] = None,
+        confidence: float | None = None,
     ) -> None:
+        """Initialize Utterance.
+
+        Args:
+            text: Transcribed text.
+            is_final: Whether this is a final transcription.
+            confidence: Confidence score if available.
+        """
         self.text = text
         self.is_final = is_final
         self.confidence = confidence
 
     def __repr__(self) -> str:
+        """Return string representation of Utterance."""
         status = "final" if self.is_final else "partial"
         return f"Utterance(text={self.text!r}, {status})"
 

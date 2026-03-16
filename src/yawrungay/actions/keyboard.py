@@ -7,7 +7,7 @@ import logging
 import os
 import shutil
 import subprocess
-from typing import Any, Optional
+from typing import Any
 
 from yawrungay.actions.base import ActionContext, ActionResult, BaseAction
 
@@ -233,9 +233,9 @@ def _detect_backend() -> str:
     Returns:
         Backend name: 'ydotool', 'xdotool', or 'pynput'
     """
-    session_type = os.environ.get("XDG_SESSION_TYPE", "").lower()
+    logger.info(f"Session type: {os.environ.get("XDG_SESSION_TYPE", "")}")
     display = os.environ.get("DISPLAY", "")
-    wayland_display = os.environ.get("WAYLAND_DISPLAY", "")
+    logger.info(f"DISPLAY={display}")
 
     # Check if ydotool is available (preferred for Wayland)
     if shutil.which("ydotool"):
@@ -276,7 +276,7 @@ class KeyboardAction(BaseAction):
 
     def __init__(self):
         """Initialize keyboard action with best available backend."""
-        self._backend: Optional[str] = None
+        self._backend: str | None = None
 
     @property
     def backend(self) -> str:
@@ -287,6 +287,7 @@ class KeyboardAction(BaseAction):
 
     @property
     def name(self) -> str:
+        """Get the action name."""
         return "keyboard"
 
     def execute(self, arguments: dict[str, Any], context: ActionContext) -> ActionResult:
@@ -466,7 +467,7 @@ class KeyboardAction(BaseAction):
                 return ActionResult(success=False, error=f"Invalid key combination: {keys_str}")
 
             keys = key_parts["keys"]
-            modifiers = key_parts["modifiers"]
+            key_parts["modifiers"]
 
             cmd_parts = []
             for key in keys:
@@ -580,7 +581,7 @@ class KeyboardAction(BaseAction):
         """Parse key combination for pynput."""
         from pynput import keyboard
 
-        PYNPUT_MODIFIERS = {
+        pynput_modifiers = {
             "ctrl": keyboard.Key.ctrl,
             "control": keyboard.Key.ctrl,
             "alt": keyboard.Key.alt,
@@ -591,7 +592,7 @@ class KeyboardAction(BaseAction):
             "meta": keyboard.Key.cmd,
         }
 
-        PYNPUT_SPECIAL_KEYS = {
+        pynput_special_keys = {
             "enter": keyboard.Key.enter,
             "return": keyboard.Key.enter,
             "tab": keyboard.Key.tab,
@@ -635,10 +636,10 @@ class KeyboardAction(BaseAction):
             if not part:
                 continue
 
-            if part in PYNPUT_MODIFIERS:
-                keys.append(PYNPUT_MODIFIERS[part])
-            elif part in PYNPUT_SPECIAL_KEYS:
-                keys.append(PYNPUT_SPECIAL_KEYS[part])
+            if part in pynput_modifiers:
+                keys.append(pynput_modifiers[part])
+            elif part in pynput_special_keys:
+                keys.append(pynput_special_keys[part])
             elif len(part) == 1:
                 keys.append(keyboard.KeyCode.from_char(part))
             else:
@@ -647,7 +648,7 @@ class KeyboardAction(BaseAction):
 
         return keys
 
-    def validate_arguments(self, arguments: dict[str, Any]) -> Optional[str]:
+    def validate_arguments(self, arguments: dict[str, Any]) -> str | None:
         """Validate keyboard action arguments.
 
         Args:

@@ -7,7 +7,6 @@ import shutil
 import zipfile
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Optional
 from urllib import request
 
 from vosk import KaldiRecognizer, Model
@@ -68,8 +67,8 @@ class VoskRecognizer(BaseRecognizer):
 
         self.model_size = model_size
         self.sample_rate = sample_rate
-        self._model: Optional[Model] = None
-        self._recognizer: Optional[KaldiRecognizer] = None
+        self._model: Model | None = None
+        self._recognizer: KaldiRecognizer | None = None
 
         # Set model path
         if model_path is None:
@@ -93,7 +92,7 @@ class VoskRecognizer(BaseRecognizer):
         size_mb = model_info["size_mb"]
 
         logger.info(f"Downloading Vosk model '{model_name}' (~{size_mb}MB)...")
-        logger.info(f"This may take a few minutes depending on your connection speed.")
+        logger.info("This may take a few minutes depending on your connection speed.")
 
         # Create cache directory
         cache_dir = Path(self.model_path)
@@ -282,7 +281,6 @@ class VoskRecognizer(BaseRecognizer):
 
         recognizer = KaldiRecognizer(self._model, sample_rate)
         buffer: list[bytes] = []
-        current_text = ""
         last_partial = ""
 
         logger.debug("Starting Vosk streaming transcription")
@@ -314,7 +312,6 @@ class VoskRecognizer(BaseRecognizer):
                     yield Utterance(text=text, is_final=True, confidence=None)
 
                 buffer.clear()
-                current_text = ""
                 last_partial = ""
                 silence_detector.reset()
 

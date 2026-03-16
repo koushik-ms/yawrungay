@@ -1,8 +1,8 @@
 """Mouse actions using pynput."""
 
+import contextlib
 import logging
-import time
-from typing import Any, Optional
+from typing import Any
 
 from pynput import mouse
 
@@ -37,6 +37,7 @@ class MouseAction(BaseAction):
 
     @property
     def name(self) -> str:
+        """Get the action name."""
         return "mouse"
 
     def execute(self, arguments: dict[str, Any], context: ActionContext) -> ActionResult:
@@ -144,10 +145,8 @@ class MouseAction(BaseAction):
         amount = context.scroll_amount
 
         if len(args) > 1:
-            try:
+            with contextlib.suppress(ValueError):
                 amount = int(args[1])
-            except ValueError:
-                pass
 
         if direction not in SCROLL_DIRECTIONS:
             return ActionResult(success=False, error=f"Unknown scroll direction: {direction}")
@@ -234,7 +233,7 @@ class MouseAction(BaseAction):
             logger.error(f"Failed to move mouse: {e}")
             return ActionResult(success=False, error=str(e))
 
-    def validate_arguments(self, arguments: dict[str, Any]) -> Optional[str]:
+    def validate_arguments(self, arguments: dict[str, Any]) -> str | None:
         """Validate mouse action arguments.
 
         Args:

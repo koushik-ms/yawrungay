@@ -3,7 +3,6 @@
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 import numpy as np
 import numpy.typing as npt
@@ -322,10 +321,7 @@ def apply_noise_gate(
     gated = audio_float * gain
 
     # Convert back to original dtype
-    if dtype == np.int16:
-        result = (gated * max_val).astype(np.int16)
-    else:
-        result = gated.astype(dtype)
+    result = (gated * max_val).astype(np.int16) if dtype == np.int16 else gated.astype(dtype)
 
     return result.tobytes()
 
@@ -379,10 +375,7 @@ def calculate_rms(audio_bytes: bytes, dtype: npt.DTypeLike = np.int16) -> float:
     audio_array = bytes_to_numpy(audio_bytes, dtype=dtype)
 
     # Convert to float
-    if dtype == np.int16:
-        audio_float = audio_array.astype(np.float32) / 32767.0
-    else:
-        audio_float = audio_array.astype(np.float32)
+    audio_float = audio_array.astype(np.float32) / 32767.0 if dtype == np.int16 else audio_array.astype(np.float32)
 
     # Calculate RMS
     rms = np.sqrt(np.mean(audio_float**2))
@@ -444,10 +437,7 @@ def trim_silence(
     audio_array = bytes_to_numpy(audio_bytes, dtype=dtype)
 
     # Convert to float for processing
-    if dtype == np.int16:
-        audio_float = audio_array.astype(np.float32) / 32767.0
-    else:
-        audio_float = audio_array.astype(np.float32)
+    audio_float = audio_array.astype(np.float32) / 32767.0 if dtype == np.int16 else audio_array.astype(np.float32)
 
     threshold_linear = 10 ** (threshold_db / 20.0)
 

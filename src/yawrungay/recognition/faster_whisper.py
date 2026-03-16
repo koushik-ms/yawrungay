@@ -61,7 +61,8 @@ class FasterWhisperRecognizer(BaseRecognizer):
         self.cache_dir = cache_dir
 
         logger.debug(
-            f"Initialized FasterWhisperRecognizer with model_size={model_size}, compute_type={compute_type}, cache_dir={cache_dir}"
+            f"Initialized FasterWhisperRecognizer with "
+            f"model_size={model_size}, compute_type={compute_type}, cache_dir={cache_dir}"
         )
 
     def load_model(self) -> None:
@@ -208,17 +209,16 @@ class FasterWhisperRecognizer(BaseRecognizer):
             buffer.append(chunk)
             silence_state = silence_detector.process_chunk(chunk)
 
-            if silence_state == SilenceState.UTTERANCE_END:
-                if buffer:
-                    audio_data = b"".join(buffer)
-                    text = self.transcribe(audio_data)
+            if silence_state == SilenceState.UTTERANCE_END and buffer:
+                audio_data = b"".join(buffer)
+                text = self.transcribe(audio_data)
 
-                    if text.strip():
-                        logger.debug(f"Faster-whisper streaming utterance: {text}")
-                        yield Utterance(text=text, is_final=True, confidence=None)
+                if text.strip():
+                    logger.debug(f"Faster-whisper streaming utterance: {text}")
+                    yield Utterance(text=text, is_final=True, confidence=None)
 
-                    buffer.clear()
-                    silence_detector.reset()
+                buffer.clear()
+                silence_detector.reset()
 
         if buffer:
             audio_data = b"".join(buffer)

@@ -1,8 +1,6 @@
 """Command parser for Yawrungay."""
 
 import logging
-import re
-from typing import Optional
 
 from yawrungay.parsing.base import ParsedCommand, Phrase
 from yawrungay.parsing.patterns import BUILTIN_PATTERNS
@@ -34,7 +32,7 @@ class CommandParser:
         else:
             self._phrases = {}
 
-    def parse(self, text: str) -> Optional[ParsedCommand]:
+    def parse(self, text: str) -> ParsedCommand | None:
         """Parse transcribed text into a command.
 
         Args:
@@ -71,7 +69,7 @@ class CommandParser:
         logger.debug(f"No match for: {text}")
         return None
 
-    def _parse_action(self, action: str, raw_phrase: str, phrase: Phrase) -> Optional[ParsedCommand]:
+    def _parse_action(self, action: str, raw_phrase: str, phrase: Phrase) -> ParsedCommand | None:
         """Parse an action string into a ParsedCommand.
 
         Action strings can be:

@@ -3,12 +3,10 @@
 import logging
 import queue
 import threading
-from contextlib import contextmanager
-from dataclasses import dataclass, field
-from collections.abc import Mapping
-from typing import Callable, Generator, Optional
+from collections.abc import Generator, Mapping
+from contextlib import contextmanager, suppress
+from dataclasses import dataclass
 
-import numpy as np
 import pyaudio
 
 from yawrungay.audio.devices import AudioDevice, get_device_info
@@ -46,7 +44,7 @@ class AudioConfig:
     chunk_size: int = DEFAULT_CHUNK_SIZE
     channels: int = DEFAULT_CHANNELS
     format: int = DEFAULT_FORMAT
-    device_index: Optional[int] = None
+    device_index: int | None = None
     max_queue_size: int = DEFAULT_MAX_QUEUE_SIZE
 
 
@@ -66,19 +64,19 @@ class AudioCapture:
                 pass
     """
 
-    def __init__(self, config: Optional[AudioConfig] = None) -> None:
+    def __init__(self, config: AudioConfig | None = None) -> None:
         """Initialize audio capture.
 
         Args:
             config: Audio configuration. Uses defaults if not provided.
         """
         self.config = config or AudioConfig()
-        self._pa: Optional[pyaudio.PyAudio] = None
-        self._stream: Optional[pyaudio.Stream] = None
-        self._queue: queue.Queue[Optional[bytes]] = queue.Queue(maxsize=self.config.max_queue_size)
+        self._pa: pyaudio.PyAudio | None = None
+        self._stream: pyaudio.Stream | None = None
+        self._queue: queue.Queue[bytes | None] = queue.Queue(maxsize=self.config.max_queue_size)
         self._is_capturing = False
         self._lock = threading.Lock()
-        self._device: Optional[AudioDevice] = None
+        self._device: AudioDevice | None = None
 
     def _get_device_info(self) -> AudioDevice:
         """Get device info for the configured device.
@@ -104,8 +102,8 @@ class AudioCapture:
             return device
 
     def _callback(
-        self, in_data: Optional[bytes], frame_count: int, time_info: Mapping[str, float], status: int
-    ) -> tuple[Optional[bytes], int]:
+        self, in_data: bytes | None, frame_count: int, time_info: Mapping[str, float], status: int
+    ) -> tuple[bytes | None, int]:
         """PyAudio callback function.
 
         Called by PyAudio when audio data is available. Puts data into queue.
@@ -214,14 +212,12 @@ class AudioCapture:
             self._is_capturing = False
 
             # Signal end of stream to any waiting readers
-            try:
+            with suppress(queue.Full):
                 self._queue.put_nowait(None)
-            except queue.Full:
-                pass
 
             logger.info("Stopped audio capture")
 
-    def read_chunk(self, timeout: Optional[float] = None) -> Optional[bytes]:
+    def read_chunk(self, timeout: float | None = None) -> bytes | None:
         """Read a single audio chunk from the queue.
 
         Args:
@@ -236,7 +232,7 @@ class AudioCapture:
         except queue.Empty:
             return None
 
-    def read_chunks(self, timeout: Optional[float] = None) -> Generator[bytes, None, None]:
+    def read_chunks(self, timeout: float | None = None) -> Generator[bytes, None, None]:
         """Generator that yields audio chunks until stream ends.
 
         Args:
@@ -306,7 +302,7 @@ class AudioCapture:
             return self._is_capturing
 
     @property
-    def device(self) -> Optional[AudioDevice]:
+    def device(self) -> AudioDevice | None:
         """Get the currently used audio device.
 
         Returns:
@@ -341,7 +337,7 @@ class AudioCapture:
 @contextmanager
 def record_audio(
     duration: float,
-    config: Optional[AudioConfig] = None,
+    config: AudioConfig | None = None,
 ) -> Generator[bytes, None, None]:
     """Context manager for recording audio.
 

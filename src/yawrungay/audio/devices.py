@@ -1,7 +1,6 @@
 """Audio device enumeration and management."""
 
 from dataclasses import dataclass
-from typing import Optional
 
 import pyaudio
 
@@ -79,7 +78,7 @@ def list_audio_devices() -> list[AudioDevice]:
     return devices
 
 
-def get_default_input_device() -> Optional[AudioDevice]:
+def get_default_input_device() -> AudioDevice | None:
     """Get the system's default input device.
 
     Returns:
@@ -110,7 +109,7 @@ def get_default_input_device() -> Optional[AudioDevice]:
         p.terminate()
 
 
-def get_device_info(device_index: int) -> Optional[AudioDevice]:
+def get_device_info(device_index: int) -> AudioDevice | None:
     """Get information about a specific audio device.
 
     Args:
