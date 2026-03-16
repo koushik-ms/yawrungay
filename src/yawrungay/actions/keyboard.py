@@ -349,9 +349,9 @@ class KeyboardAction(BaseAction):
     def _type_text_ydotool(self, text: str, context: ActionContext) -> ActionResult:
         """Type text using ydotool."""
         try:
-            # ydotool type --delay <ms> "text"
+            # ydotool type --key-delay <ms> "text"
             delay_ms = int(context.type_delay_ms)
-            cmd = ["ydotool", "type", "--delay", str(delay_ms), "--", text]
+            cmd = ["ydotool", "type", "--key-delay", str(delay_ms), "--", text]
 
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
 
